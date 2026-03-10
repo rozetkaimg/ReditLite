@@ -1,64 +1,64 @@
 package com.rozetka.reditlite
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.rozetka.reditlite.data.RedditRepository
 import com.rozetka.reditlite.data.TokenStorage
 import com.rozetka.reditlite.models.RedditPost
 import com.rozetka.reditlite.screens.FeedScreen
 import com.rozetka.reditlite.screens.PostDetailScreen
 
-
-@Composable
-expect fun SystemBackHandler(enabled: Boolean = true, onBack: () -> Unit)
-
-enum class AppScreen {
-    Login, Feed, Detail
+sealed class AuthState {
+    object Idle : AuthState()
+    object Loading : AuthState()
+    object Authenticated : AuthState()
+    data class Error(val message: String) : AuthState()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App(authCode: String?, onLoginClick: () -> Unit) {
     val repository = remember { RedditRepository() }
+    val navController = rememberNavController() // Главный контроллер навигации
 
-    var isLoggedIn by remember { mutableStateOf(TokenStorage.accessToken != null) }
+    var authState by remember {
+        mutableStateOf<AuthState>(
+            if (TokenStorage.accessToken != null) AuthState.Authenticated else AuthState.Idle
+        )
+    }
+
+    // Храним выбранный пост на уровне App, чтобы передавать его в экран деталей
     var selectedPost by remember { mutableStateOf<RedditPost?>(null) }
 
+    // Логика авторизации
     LaunchedEffect(authCode) {
-        if (authCode != null && !isLoggedIn) {
-            repository.getAccessToken(authCode).onSuccess { token ->
-                TokenStorage.accessToken = token
-                isLoggedIn = true
-            }
+        if (authCode != null && authState !is AuthState.Authenticated) {
+            authState = AuthState.Loading
+            repository.getAccessToken(authCode).fold(
+                onSuccess = { token ->
+                    TokenStorage.accessToken = token
+                    authState = AuthState.Authenticated
+                    // После успешного входа направляем на feed и чистим login из стека жеста "назад"
+                    navController.navigate("feed") {
+                        popUpTo("login") { inclusive = true }
+                    }
+                },
+                onFailure = { error ->
+                    authState = AuthState.Error(error.message ?: "Login failed")
+                }
+            )
         }
     }
 
@@ -96,54 +96,57 @@ fun App(authCode: String?, onLoginClick: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surface
         ) {
-            val currentScreen = when {
-                !isLoggedIn -> AppScreen.Login
-                selectedPost != null -> AppScreen.Detail
-                else -> AppScreen.Feed
-            }
+            val startDestination = if (TokenStorage.accessToken != null) "feed" else "login"
 
-            SystemBackHandler(enabled = currentScreen == AppScreen.Detail) {
-                selectedPost = null
-            }
+            NavHost(
+                navController = navController,
+                startDestination = startDestination,
+                enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300)) },
+                exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300)) },
+                popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300)) },
+                popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300)) }
+            ) {
 
-            AnimatedContent(
-                targetState = currentScreen,
-                transitionSpec = {
-                    when {
-                        targetState == AppScreen.Detail -> {
-                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300)) togetherWith
-                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Left, tween(300))
-                        }
-                        initialState == AppScreen.Detail && targetState == AppScreen.Feed -> {
-                            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300)) togetherWith
-                                    slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Right, tween(300))
-                        }
-                        else -> {
-                            fadeIn(tween(300)) togetherWith fadeOut(tween(300))
-                        }
-                    }
-                },
-                label = "AppNavigation"
-            ) { screen ->
-                when (screen) {
-                    AppScreen.Login -> {
-                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                            FilledTonalButton(
-                                onClick = onLoginClick,
-                                shape = RoundedCornerShape(28.dp),
-                                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 20.dp)
-                            ) {
-                                Text("Log in with Reddit", style = MaterialTheme.typography.titleLarge)
+                composable("login") {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        when (authState) {
+                            is AuthState.Loading -> {
+                                CircularProgressIndicator()
+                            }
+                            else -> {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    FilledTonalButton(
+                                        onClick = onLoginClick,
+                                        shape = RoundedCornerShape(28.dp),
+                                        contentPadding = PaddingValues(horizontal = 32.dp, vertical = 20.dp)
+                                    ) {
+                                        Text("Log in with Reddit", style = MaterialTheme.typography.titleLarge)
+                                    }
+                                    if (authState is AuthState.Error) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = (authState as AuthState.Error).message,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
-                    AppScreen.Feed -> {
-                        FeedScreen(onPostClick = { selectedPost = it })
-                    }
-                    AppScreen.Detail -> {
+                }
+
+                composable("feed") {
+                    FeedScreen(onPostClick = { post ->
+                        selectedPost = post
+                        navController.navigate("detail")
+                    })
+                }
+
+                composable("detail") {
+                    selectedPost?.let { post ->
                         PostDetailScreen(
-                            post = selectedPost!!,
-                            onBack = { selectedPost = null }
+                            post = post,
+                            onBack = { navController.popBackStack() }
                         )
                     }
                 }
@@ -151,10 +154,3 @@ fun App(authCode: String?, onLoginClick: () -> Unit) {
         }
     }
 }
-
-
-
-
-
-
-
