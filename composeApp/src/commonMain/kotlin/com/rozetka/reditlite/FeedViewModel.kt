@@ -1,7 +1,5 @@
 package com.rozetka.reditlite
 
-
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rozetka.reditlite.data.RedditRepository
@@ -24,7 +22,7 @@ sealed interface FeedState {
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class FeedViewModel(
-    private val repository: RedditRepository = RedditRepository()
+    private val repository: RedditRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<FeedState>(FeedState.Loading)
@@ -33,34 +31,31 @@ class FeedViewModel(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private var currentAfter: String? = null
+
     init {
+        viewModelScope.launch {
+            repository.getPostsFlow().collect { posts ->
+                if (posts.isNotEmpty()) {
+                    val currentState = _state.value
+                    val paginating = (currentState as? FeedState.Content)?.isPaginating ?: false
+                    _state.value = FeedState.Content(posts, paginating, currentAfter)
+                } else if (_state.value !is FeedState.Loading) {
+                    _state.value = FeedState.Empty
+                }
+            }
+        }
+
         viewModelScope.launch {
             _searchQuery
                 .debounce(500)
-                .flatMapLatest { query ->
-                    flow {
-                        emit(FeedState.Loading)
-                        emit(repository.fetchPosts(query = query, after = null))
-                    }
-                }
-                .collect { result ->
-                    if (result is FeedState.Loading) {
-                        _state.value = FeedState.Loading
-                    } else if (result is Result<*>) {
-                        val res = result as Result<Pair<List<RedditPost>, String?>>
-                        res.fold(
-                            onSuccess = { (posts, after) ->
-                                if (posts.isEmpty()) {
-                                    _state.value = FeedState.Empty
-                                } else {
-                                    _state.value = FeedState.Content(posts, false, after)
-                                }
-                            },
-                            onFailure = { error ->
-                                _state.value = FeedState.Error(error.message ?: "Unknown error")
-                            }
-                        )
-                    }
+                .collectLatest { query ->
+                    _state.value = FeedState.Loading
+                    currentAfter = null
+                    repository.fetchAndCachePosts(query = query, after = null).fold(
+                        onSuccess = { after -> currentAfter = after },
+                        onFailure = { error -> _state.value = FeedState.Error(error.message ?: "Unknown error") }
+                    )
                 }
         }
     }
@@ -69,19 +64,28 @@ class FeedViewModel(
         _searchQuery.value = query
     }
 
+    fun refresh() {
+        viewModelScope.launch {
+            currentAfter = null
+            repository.fetchAndCachePosts(query = _searchQuery.value, after = null).onSuccess {
+                currentAfter = it
+            }
+        }
+    }
+
     fun retry() {
-        _searchQuery.value = _searchQuery.value
+        refresh()
     }
 
     fun loadNextPage() {
         val currentState = _state.value
-        if (currentState is FeedState.Content && !currentState.isPaginating && currentState.nextAfter != null) {
+        if (currentState is FeedState.Content && !currentState.isPaginating && currentAfter != null) {
             viewModelScope.launch {
                 _state.value = currentState.copy(isPaginating = true)
-                repository.fetchPosts(query = _searchQuery.value, after = currentState.nextAfter).fold(
-                    onSuccess = { (newPosts, newAfter) ->
-                        val updatedList = currentState.posts + newPosts
-                        _state.value = FeedState.Content(updatedList, false, newAfter)
+                repository.fetchAndCachePosts(query = _searchQuery.value, after = currentAfter).fold(
+                    onSuccess = { after ->
+                        currentAfter = after
+                        _state.value = (_state.value as FeedState.Content).copy(isPaginating = false, nextAfter = after)
                     },
                     onFailure = {
                         _state.value = currentState.copy(isPaginating = false)

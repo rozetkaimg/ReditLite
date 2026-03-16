@@ -1,3 +1,4 @@
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -6,6 +7,12 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+    id("com.google.devtools.ksp") version "2.3.6"
+    id("androidx.room") version "2.8.4"
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 kotlin {
@@ -46,11 +53,15 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.client.logging)
+            implementation(libs.ktor.client.auth)
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.multiplatform.settings)
             implementation(libs.napier)
             implementation(libs.navigation.compose)
+
+            implementation(libs.androidx.room.runtime)
+            implementation(libs.androidx.sqlite.bundled)
         }
 
         iosMain.dependencies {
@@ -61,6 +72,13 @@ kotlin {
             implementation(libs.kotlin.test)
         }
     }
+}
+
+dependencies {
+    add("kspAndroid", "androidx.room:room-compiler:2.7.0-alpha11")
+    add("kspIosSimulatorArm64", "androidx.room:room-compiler:2.7.0-alpha11")
+    add("kspIosArm64", "androidx.room:room-compiler:2.7.0-alpha11")
+    debugImplementation(libs.compose.uiTooling)
 }
 
 android {
@@ -88,8 +106,4 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-}
-
-dependencies {
-    debugImplementation(libs.compose.uiTooling)
 }

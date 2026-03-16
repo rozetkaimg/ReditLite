@@ -33,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rozetka.reditlite.PostDetailViewModel
 import com.rozetka.reditlite.data.PostDetailState
 import com.rozetka.reditlite.models.RedditPost
@@ -42,7 +41,7 @@ import com.rozetka.reditlite.models.RedditPost
 @Composable
 fun PostDetailScreen(
     post: RedditPost,
-    viewModel: PostDetailViewModel = viewModel { PostDetailViewModel() },
+    viewModel: PostDetailViewModel,
     onBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
