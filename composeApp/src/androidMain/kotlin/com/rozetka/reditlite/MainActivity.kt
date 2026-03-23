@@ -1,31 +1,34 @@
 package com.rozetka.reditlite
 
-
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
-
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.mutableStateOf
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
-    private val authCode = mutableStateOf<String?>(null)
+
+    private val authCodeFlow = MutableStateFlow<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleIntent(intent)
         enableEdgeToEdge()
+        handleIntent(intent)
+
         setContent {
+            val authCode by authCodeFlow.collectAsStateWithLifecycle()
+
             App(
-                authCode = authCode.value,
+                authCode = authCode,
                 onLoginClick = {
-                    val url =
-                        "https://www.reddit.com/api/v1/authorize?response_type=code&client_id=yH0aTnJEt6qUgGn835B4vg&redirect_uri=redreader://rr_oauth_redir&scope=read&state=Texas&duration=permanent"
+                    val clientId = "yH0aTnJEt6qUgGn835B4vg"
+                    val redirectUri = "redreader://rr_oauth_redir"
+                    val url = "https://www.reddit.com/api/v1/authorize.compact?client_id=$clientId&response_type=code&state=random_state_string&redirect_uri=$redirectUri&duration=permanent&scope=identity read vote submit subscribe history mysubreddits"
+
                     startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                 }
             )
@@ -38,9 +41,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        val uri = intent?.data
-        if (uri != null && uri.scheme == "redreader" && uri.host == "rr_oauth_redir") {
-            authCode.value = uri.getQueryParameter("code")
+        intent?.data?.getQueryParameter("code")?.let { code ->
+            authCodeFlow.value = code
         }
     }
 }
