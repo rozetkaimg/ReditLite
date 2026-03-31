@@ -1,9 +1,23 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidKotlinMultiplatformLibrary)
+    alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinSerialization)
-    id("com.google.devtools.ksp") version "2.3.6"
-    id("androidx.room") version "2.8.4"
+    alias(libs.plugins.google.devtools.ksp)
+    alias(libs.plugins.androidx.room)
+}
+
+android {
+    namespace = "com.rozetka.data"
+    compileSdk = 36
+    defaultConfig {
+        minSdk = 24
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
 }
 
 room {
@@ -11,10 +25,8 @@ room {
 }
 
 kotlin {
-    androidLibrary {
-        namespace = "com.rozetka.data"
-        compileSdk = 36
-        minSdk = 24
+    androidTarget {
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_11) }
     }
 
     iosX64()
@@ -37,7 +49,6 @@ kotlin {
         }
 
         androidMain.dependencies {
-
             implementation(libs.ktor.client.okhttp)
         }
 
@@ -48,7 +59,7 @@ kotlin {
 }
 
 dependencies {
-    val roomCompiler = "androidx.room:room-compiler:2.8.4"
+    val roomCompiler = "androidx.room:room-compiler:2.7.0-alpha13"
     add("kspAndroid", roomCompiler)
     add("kspIosSimulatorArm64", roomCompiler)
     add("kspIosArm64", roomCompiler)

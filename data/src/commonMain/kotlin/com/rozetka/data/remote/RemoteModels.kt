@@ -44,7 +44,23 @@ data class NetworkPost(
     val subscribers: Int = 0,
     val subject: String? = null,
     val created_utc: Double = 0.0,
-    val display_name: String? = null
+    val display_name: String? = null,
+    val is_video: Boolean = false,
+    val media: RedditMedia? = null,
+    val post_hint: String? = null,
+    val thumbnail: String? = null
+)
+
+@Serializable
+data class RedditMedia(
+    val reddit_video: RedditVideo? = null
+)
+
+@Serializable
+data class RedditVideo(
+    val fallback_url: String? = null,
+    val dash_url: String? = null,
+    val hls_url: String? = null
 )
 
 @Serializable
@@ -63,6 +79,7 @@ data class NetworkComment(
     val body: String? = null,
     val score: Int? = null,
     val created_utc: Double? = null,
+    val author_icon_img: String? = null,
     val replies: JsonElement? = null
 )
 
@@ -72,4 +89,24 @@ data class RedditUserResponse(
     val link_karma: Int = 0,
     val comment_karma: Int = 0,
     val icon_img: String? = null
+)
+
+@Serializable
+data class SubredditAboutResponse(
+    val data: NetworkPost
+)
+
+@Serializable
+data class SubredditRulesResponse(
+    val rules: List<SubredditRule>
+)
+
+@Serializable
+data class SubredditRule(
+    val short_name: String,
+    val description: String? = null,
+    val violation_reason: String? = null,
+    val created_utc: Double? = null,
+    val priority: Int? = null,
+    val description_html: String? = null
 )

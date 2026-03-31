@@ -2,6 +2,7 @@ package com.rozetka.reditlite
 
 import android.app.Application
 
+import io.github.aakira.napier.Napier
 import org.koin.android.ext.koin.androidContext
 
 class MainApp : Application() {
@@ -9,6 +10,10 @@ class MainApp : Application() {
         super.onCreate()
         initKoin {
             androidContext(this@MainApp)
+        }
+        
+        if (!com.rozetka.reditlite.BuildConfig.DEBUG) {
+            Napier.base(CrashlyticsAntilog())
         }
     }
 }

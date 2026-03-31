@@ -11,6 +11,8 @@ data class Post(
     val voteStatus: VoteDirection,
     val text: String?,
     val mediaUrl: String?,
+    val isVideo: Boolean = false,
+    val videoUrl: String? = null,
     val postUrl: String,
     val createdUtc: Long
 )

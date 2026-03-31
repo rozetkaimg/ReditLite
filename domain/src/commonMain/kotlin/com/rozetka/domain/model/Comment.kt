@@ -6,7 +6,9 @@ data class Subreddit(
     val displayName: String,
     val description: String,
     val subscribersCount: Int,
-    val isSubscribed: Boolean
+    val isSubscribed: Boolean,
+    val isFavorite: Boolean = false,
+    val rules: List<String> = emptyList()
 )
 data class Comment(
     val id: String,
@@ -15,5 +17,6 @@ data class Comment(
     val score: Int,
     val voteStatus: VoteDirection,
     val depth: Int,
-    val replies: List<Comment>
+    val replies: List<Comment>,
+    val authorIconUrl: String? = null
 )

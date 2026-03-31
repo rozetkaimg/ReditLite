@@ -11,4 +11,8 @@ class FetchFeedUseCase(
     suspend operator fun invoke(feedType: FeedType, after: String?, limit: Int = 25): Result<PaginatedData<Post>> {
         return feedRepository.fetchFeed(feedType, after, limit)
     }
+
+    suspend fun search(query: String, after: String?, limit: Int = 25): Result<PaginatedData<Post>> {
+        return feedRepository.searchPosts(query, after, limit)
+    }
 }

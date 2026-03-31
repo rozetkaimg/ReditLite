@@ -14,7 +14,7 @@ actual val platformDataModule = module {
         Room.databaseBuilder<AppDatabase>(
             context = context.applicationContext,
             name = dbFile.absolutePath
-        )
+        ).fallbackToDestructiveMigration(dropAllTables = true)
             .setDriver(AndroidSQLiteDriver())
             .build()
     }

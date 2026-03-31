@@ -2,11 +2,16 @@
 
 import com.rozetka.data.local.AppDatabase
 import com.rozetka.data.local.SecureStorageManager
+import com.rozetka.data.local.UserEntity
 import com.rozetka.data.mapper.toDomain
+import com.rozetka.data.model.local.TrophyEntity
+import com.rozetka.data.model.local.RedditTrophyResponse
 import com.rozetka.data.model.remote.RedditListingResponse
 import com.rozetka.data.model.remote.RedditUserResponse
 import com.rozetka.domain.model.AuthState
 import com.rozetka.domain.model.NotificationMessage
+import com.rozetka.domain.model.SavedPost
+import com.rozetka.domain.model.Trophy
 import com.rozetka.domain.model.UserProfile
 import com.rozetka.domain.repository.AuthRepository
 import com.rozetka.domain.repository.UserRepository
@@ -23,14 +28,30 @@ class UserRepositoryImpl(
 
     override suspend fun getMyProfile(): Result<UserProfile> {
         return runCatching {
-            val response: RedditUserResponse = client.get("https://oauth.reddit.com/api/v1/me").body()
-            response.toDomain()
+            try {
+                val response: RedditUserResponse =
+                    client.get("https://oauth.reddit.com/api/v1/me").body()
+                val profile = response.toDomain()
+
+                database.userDao().insertUserProfile(
+                    UserEntity(
+                        name = profile.name,
+                        totalKarma = profile.totalKarma,
+                        iconUrl = profile.iconUrl
+                    )
+                )
+                profile
+            } catch (e: Exception) {
+                val cachedProfile = database.userDao().getUserProfile()
+                cachedProfile?.toDomain() ?: throw e
+            }
         }
     }
 
     override suspend fun getUnreadMessages(): Result<List<NotificationMessage>> {
         return runCatching {
-            val response: RedditListingResponse = client.get("https://oauth.reddit.com/message/unread").body()
+            val response: RedditListingResponse =
+                client.get("https://oauth.reddit.com/message/unread").body()
             response.data.children.map { wrapper ->
                 NotificationMessage(
                     id = wrapper.data.name,
@@ -62,5 +83,53 @@ class UserRepositoryImpl(
     override suspend fun logout() {
         storageManager.clearTokens()
         database.postDao().clearAll()
+        database.userDao().clearProfile()
+        database.userDao().clearTrophies()
+    }
+
+    override suspend fun getTrophies(): Result<List<Trophy>> {
+        return runCatching {
+            try {
+                val response: RedditTrophyResponse =
+                    client.get("https://oauth.reddit.com/api/v1/me/trophies").body()
+                val trophies = response.data.trophies.map {
+                    Trophy(
+                        id = it.data.id ?: "",
+                        name = it.data.name,
+                        iconUrl = it.data.icon_70 ?: "",
+                        description = it.data.description
+                    )
+                }
+
+                database.userDao().clearTrophies()
+                database.userDao().insertTrophies(
+                    trophies.map { TrophyEntity(it.id?: "",  it.name, it.iconUrl, it.description) }
+                )
+                trophies
+            } catch (e: Exception) {
+                val cachedTrophies = database.userDao().getTrophies()
+                if (cachedTrophies.isNotEmpty()) {
+                    cachedTrophies.map { it.toDomain() }
+                } else {
+                    throw e
+                }
+            }
+        }
+    }
+
+    override suspend fun getSavedPosts(username: String): Result<List<SavedPost>> {
+        return runCatching {
+            val response: RedditListingResponse =
+                client.get("https://oauth.reddit.com/user/$username/saved").body()
+            response.data.children.map { wrapper ->
+                SavedPost(
+                    id = wrapper.data.name,
+                    title = wrapper.data.title ?: "",
+                    author = wrapper.data.author ?: "",
+                    subreddit = wrapper.data.subreddit ?: "",
+                    score = wrapper.data.score ?: 0
+                )
+            }
+        }
     }
 }

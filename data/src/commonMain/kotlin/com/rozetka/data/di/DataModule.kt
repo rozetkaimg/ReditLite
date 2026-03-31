@@ -24,10 +24,11 @@ val dataModule = module {
     single { createHttpClient(get()) }
 
     single { get<AppDatabase>().postDao() }
-
+    single { get<AppDatabase>().userDao() }
+    single { get<AppDatabase>().subredditDao() }
     single<AuthRepository> { AuthRepositoryImpl(get(), get()) }
     single<FeedRepository> { FeedRepositoryImpl(get(), get()) }
     single<PostRepository> { PostRepositoryImpl(get(), get()) }
-    single<SubredditRepository> { SubredditRepositoryImpl(get()) }
+    single<SubredditRepository> { SubredditRepositoryImpl(get(), get()) }
     single<UserRepository> { UserRepositoryImpl(get(), get(), get(), get()) }
 }

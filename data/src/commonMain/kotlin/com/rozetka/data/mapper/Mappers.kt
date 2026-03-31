@@ -29,48 +29,88 @@ fun PostEntity.toDomain(): Post = Post(
     },
     text = this.text,
     mediaUrl = this.mediaUrl,
+    isVideo = this.isVideo,
+    videoUrl = this.videoUrl,
     postUrl = this.postUrl,
     createdUtc = this.createdUtc
 )
 
-fun NetworkPost.toEntity(feedType: String): PostEntity = PostEntity(
-    id = this.name,
-    title = this.title ?: "",
-    author = this.author ?: "",
-    subreddit = this.subreddit ?: "",
+fun Post.toEntity(feedType: String = "saved"): PostEntity = PostEntity(
+    id = this.id,
+    title = this.title,
+    author = this.author,
+    subreddit = this.subreddit,
     score = this.score,
-    commentsCount = this.num_comments,
-    isSaved = this.saved,
-    voteStatus = when (this.likes) {
-        true -> 1
-        false -> -1
-        null -> 0
+    commentsCount = this.commentsCount,
+    isSaved = this.isSaved,
+    voteStatus = when (this.voteStatus) {
+        VoteDirection.UP -> 1
+        VoteDirection.DOWN -> -1
+        VoteDirection.NONE -> 0
     },
-    text = this.selftext,
-    mediaUrl = this.url,
-    postUrl = "https://reddit.com${this.url}",
-    createdUtc = this.created_utc.toLong(),
+    text = this.text,
+    mediaUrl = this.mediaUrl,
+    isVideo = this.isVideo,
+    videoUrl = this.videoUrl,
+    postUrl = this.postUrl,
+    createdUtc = this.createdUtc,
     feedType = feedType
 )
 
-fun NetworkPost.toDomain(): Post = Post(
-    id = this.name,
-    title = this.title ?: "",
-    author = this.author ?: "",
-    subreddit = this.subreddit ?: "",
-    score = this.score,
-    commentsCount = this.num_comments,
-    isSaved = this.saved,
-    voteStatus = when (this.likes) {
-        true -> VoteDirection.UP
-        false -> VoteDirection.DOWN
-        null -> VoteDirection.NONE
-    },
-    text = this.selftext,
-    mediaUrl = this.url,
-    postUrl = "https://reddit.com${this.url}",
-    createdUtc = this.created_utc.toLong()
-)
+fun NetworkPost.toEntity(feedType: String): PostEntity {
+    val isValidMedia = (this.post_hint == "image" || this.post_hint == "rich:video" || this.post_hint == "video") ||
+            (this.url?.endsWith(".jpg") == true || this.url?.endsWith(".png") == true || this.url?.endsWith(".gif") == true)
+    val mediaUrl = if (isValidMedia) this.url else if (this.thumbnail?.startsWith("http") == true) this.thumbnail else null
+
+    return PostEntity(
+        id = this.name,
+        title = this.title ?: "",
+        author = this.author ?: "",
+        subreddit = this.subreddit ?: "",
+        score = this.score,
+        commentsCount = this.num_comments,
+        isSaved = this.saved,
+        voteStatus = when (this.likes) {
+            true -> 1
+            false -> -1
+            null -> 0
+        },
+        text = this.selftext,
+        mediaUrl = mediaUrl,
+        isVideo = this.is_video,
+        videoUrl = this.media?.reddit_video?.fallback_url,
+        postUrl = "https://reddit.com${this.url}",
+        createdUtc = this.created_utc.toLong(),
+        feedType = feedType
+    )
+}
+
+fun NetworkPost.toDomain(): Post {
+    val isValidMedia = (this.post_hint == "image" || this.post_hint == "rich:video" || this.post_hint == "video") ||
+            (this.url?.endsWith(".jpg") == true || this.url?.endsWith(".png") == true || this.url?.endsWith(".gif") == true)
+    val mediaUrl = if (isValidMedia) this.url else if (this.thumbnail?.startsWith("http") == true) this.thumbnail else null
+
+    return Post(
+        id = this.name,
+        title = this.title ?: "",
+        author = this.author ?: "",
+        subreddit = this.subreddit ?: "",
+        score = this.score,
+        commentsCount = this.num_comments,
+        isSaved = this.saved,
+        voteStatus = when (this.likes) {
+            true -> VoteDirection.UP
+            false -> VoteDirection.DOWN
+            null -> VoteDirection.NONE
+        },
+        text = this.selftext,
+        mediaUrl = mediaUrl,
+        isVideo = this.is_video,
+        videoUrl = this.media?.reddit_video?.fallback_url,
+        postUrl = "https://reddit.com${this.url}",
+        createdUtc = this.created_utc.toLong()
+    )
+}
 
 fun RedditUserResponse.toDomain(): UserProfile = UserProfile(
     id = this.name,
@@ -111,6 +151,7 @@ fun NetworkComment.toDomain(depth: Int = 0): Comment {
         score = this.score ?: 0,
         voteStatus = VoteDirection.NONE,
         depth = depth,
-        replies = parsedReplies
+        replies = parsedReplies,
+        authorIconUrl = this.author_icon_img
     )
 }

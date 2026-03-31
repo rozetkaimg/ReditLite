@@ -14,6 +14,7 @@ actual class AppDatabaseBuilder(private val context: Context) {
             name = dbFile.absolutePath
         )
             .setDriver(AndroidSQLiteDriver())
+            .fallbackToDestructiveMigration(true)
             .build()
     }
 }

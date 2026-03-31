@@ -1,14 +1,25 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidKotlinMultiplatformLibrary)
-    alias(libs.plugins.androidLint)
+    alias(libs.plugins.androidLibrary)
+}
+
+android {
+    namespace = "com.rozetka.domain"
+    compileSdk = 36
+    defaultConfig {
+        minSdk = 24
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
 }
 
 kotlin {
-    androidLibrary {
-        namespace = "com.rozetka.domain"
-        compileSdk = 36
-        minSdk = 24
+    androidTarget {
+        compilerOptions { jvmTarget.set(JvmTarget.JVM_11) }
     }
 
     iosX64()

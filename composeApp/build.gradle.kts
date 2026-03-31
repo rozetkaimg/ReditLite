@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -6,6 +7,60 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
+}
+
+android {
+    namespace = "com.rozetka.reditlite"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.rozetka.reditlite"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0"
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    signingConfigs {
+        val properties = Properties()
+        val propertiesFile = rootProject.file("local.properties")
+        if (propertiesFile.exists()) {
+            properties.load(propertiesFile.inputStream())
+        }
+
+        create("release") {
+            storeFile = file(properties.getProperty("RELEASE_STORE_FILE") ?: "keystore.jks")
+            storePassword = properties.getProperty("RELEASE_STORE_PASSWORD") ?: ""
+            keyAlias = properties.getProperty("RELEASE_KEY_ALIAS") ?: ""
+            keyPassword = properties.getProperty("RELEASE_KEY_PASSWORD") ?: ""
+        }
+    }
+
+    buildTypes {
+        debug {
+
+        }
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
 }
 
 kotlin {
@@ -26,30 +81,31 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.compose.runtime)
             implementation(libs.compose.material3)
-            implementation(compose.materialIconsExtended)
+
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.navigation.compose)
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor)
+            implementation(libs.napier)
         }
 
         androidMain.dependencies {
             implementation(libs.koin.android)
             implementation(libs.androidx.activity.compose)
             implementation(libs.compose.uiToolingPreview)
+            implementation(libs.androidx.media3.exoplayer)
+            implementation(libs.androidx.media3.ui)
+            implementation(libs.androidx.media3.common)
+
+            implementation(project.dependencies.platform(libs.firebase.bom))
+            implementation(libs.firebase.crashlytics)
+            implementation(libs.firebase.analytics)
         }
     }
 }
 
-android {
-    namespace = "com.rozetka.reditlite"
-    compileSdk = 36
-
-    defaultConfig {
-        applicationId = "com.rozetka.reditlite"
-        minSdk = 24
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
-    }
+dependencies {
+    debugImplementation(libs.leakcanary.android)
 }

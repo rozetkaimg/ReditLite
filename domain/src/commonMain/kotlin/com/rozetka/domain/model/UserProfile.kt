@@ -7,8 +7,18 @@ data class UserProfile(
     val iconUrl: String,
     val trophies: List<Trophy>
 )
+
 data class Trophy(
+    val id: String?,
     val name: String,
     val description: String?,
     val iconUrl: String
+)
+
+data class SavedPost(
+    val id: String,
+    val title: String,
+    val author: String,
+    val subreddit: String,
+    val score: Int
 )

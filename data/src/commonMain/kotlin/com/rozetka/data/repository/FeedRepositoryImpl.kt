@@ -13,6 +13,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class FeedRepositoryImpl(
@@ -21,12 +22,21 @@ class FeedRepositoryImpl(
 ) : FeedRepository {
 
     override fun getFeedFlow(feedType: FeedType): Flow<List<Post>> {
-        return database.postDao().getPostsByFeedType(feedType.path).map { entities ->
-            entities.map { it.toDomain() }
+        return if (feedType == FeedType.SAVED) {
+            database.postDao().getSavedPosts().map { entities ->
+                entities.map { it.toDomain() }
+            }
+        } else {
+            database.postDao().getPostsByFeedType(feedType.path).map { entities ->
+                entities.map { it.toDomain() }
+            }
         }
     }
 
     override suspend fun fetchFeed(feedType: FeedType, after: String?, limit: Int): Result<PaginatedData<Post>> {
+        if (feedType == FeedType.SAVED) {
+            return Result.success(PaginatedData(emptyList(), null, null))
+        }
         return runCatching {
             val response: RedditListingResponse = client.get("https://oauth.reddit.com/${feedType.path}") {
                 parameter("limit", limit)
@@ -34,13 +44,43 @@ class FeedRepositoryImpl(
             }.body()
 
             val networkPosts = response.data.children.map { it.data }
-            val posts = networkPosts.map { it.toDomain() }
             val entities = networkPosts.map { it.toEntity(feedType.path) }
 
             if (after == null) {
                 database.postDao().clearFeed(feedType.path)
             }
-            database.postDao().insertPosts(entities)
+            
+            // Preserve isSaved status for existing posts
+            val savedPostIds = database.postDao().getSavedPosts().first().map { it.id }.toSet()
+            val entitiesWithSavedStatus = entities.map { entity ->
+                if (savedPostIds.contains(entity.id)) {
+                    entity.copy(isSaved = true)
+                } else {
+                    entity
+                }
+            }
+            
+            database.postDao().insertPosts(entitiesWithSavedStatus)
+
+            val posts = entitiesWithSavedStatus.map { it.toDomain() }
+
+            PaginatedData(
+                items = posts,
+                after = response.data.after,
+                before = response.data.before
+            )
+        }
+    }
+
+    override suspend fun searchPosts(query: String, after: String?, limit: Int): Result<PaginatedData<Post>> {
+        return runCatching {
+            val response: RedditListingResponse = client.get("https://oauth.reddit.com/search") {
+                parameter("q", query)
+                parameter("limit", limit)
+                if (after != null) parameter("after", after)
+            }.body()
+
+            val posts = response.data.children.map { it.data.toDomain() }
 
             PaginatedData(
                 items = posts,
