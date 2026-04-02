@@ -1,0 +1,5 @@
+<resources>
+    <string name="unread_messages_channel_name">Непрочитанные сообщения</string>
+    <string name="unread_messages_notification_title">Новые сообщения</string>
+    <string name="unread_messages_notification_text">У вас %d непрочитанных сообщений</string>
+</resources>
