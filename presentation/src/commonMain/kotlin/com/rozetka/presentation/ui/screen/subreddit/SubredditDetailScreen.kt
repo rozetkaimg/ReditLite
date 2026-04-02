@@ -199,6 +199,26 @@ private fun AboutSection(subreddit: Subreddit) {
                 text = subreddit.description,
                 style = MaterialTheme.typography.bodyMedium
             )
+            
+            if (subreddit.rules.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Community Rules",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                subreddit.rules.forEachIndexed { index, rule ->
+                    Text(
+                        text = "${index + 1}. $rule",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),

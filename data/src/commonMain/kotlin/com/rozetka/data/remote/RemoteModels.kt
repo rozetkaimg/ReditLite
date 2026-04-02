@@ -23,7 +23,10 @@ data class RedditListingData(
 )
 
 @Serializable
-data class RedditPostWrapper(val data: NetworkPost)
+data class RedditPostWrapper(
+    val kind: String? = null,
+    val data: NetworkPost
+)
 
 @Serializable
 data class NetworkPost(
@@ -70,7 +73,10 @@ data class CommentListing(val data: CommentData)
 data class CommentData(val children: List<CommentWrapper>)
 
 @Serializable
-data class CommentWrapper(val data: NetworkComment)
+data class CommentWrapper(
+    val kind: String? = null,
+    val data: NetworkComment
+)
 
 @Serializable
 data class NetworkComment(
@@ -80,7 +86,8 @@ data class NetworkComment(
     val score: Int? = null,
     val created_utc: Double? = null,
     val author_icon_img: String? = null,
-    val replies: JsonElement? = null
+    val replies: JsonElement? = null,
+    val depth: Int? = null
 )
 
 @Serializable
@@ -109,4 +116,28 @@ data class SubredditRule(
     val created_utc: Double? = null,
     val priority: Int? = null,
     val description_html: String? = null
+)
+
+@Serializable
+data class MediaAssetResponse(
+    val args: MediaAssetArgs? = null,
+    val asset: MediaAsset? = null
+)
+
+@Serializable
+data class MediaAssetArgs(
+    val action: String,
+    val fields: List<MediaAssetField>
+)
+
+@Serializable
+data class MediaAssetField(
+    val name: String,
+    val value: String
+)
+
+@Serializable
+data class MediaAsset(
+    val asset_id: String,
+    val websocket_url: String? = null
 )

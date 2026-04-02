@@ -63,6 +63,10 @@ android {
     }
 }
 
+compose.resources {
+    packageOfResClass = "com.rozetka.reditlite.generated.resources"
+}
+
 kotlin {
     androidTarget {
         compilerOptions { jvmTarget.set(JvmTarget.JVM_11) }
@@ -81,6 +85,8 @@ kotlin {
             implementation(libs.koin.compose)
             implementation(libs.compose.runtime)
             implementation(libs.compose.material3)
+            implementation(libs.compose.material3.windowSizeClass)
+            implementation(libs.compose.components.resources)
 
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.androidx.lifecycle.viewmodelCompose)
@@ -102,6 +108,7 @@ kotlin {
             implementation(project.dependencies.platform(libs.firebase.bom))
             implementation(libs.firebase.crashlytics)
             implementation(libs.firebase.analytics)
+            implementation(libs.androidx.work.runtime)
         }
     }
 }

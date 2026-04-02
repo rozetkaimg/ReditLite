@@ -1,5 +1,6 @@
 package com.rozetka.presentation.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -14,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -32,15 +34,17 @@ fun MediaViewer(
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null
 ) {
+    BackHandler(onBack = onDismiss)
+
     val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { mediaItems.size })
 
     var scale by remember { mutableStateOf(1f) }
-    var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
 
     LaunchedEffect(pagerState.currentPage) {
         onPageChanged?.invoke(pagerState.currentPage)
         scale = 1f
-        offset = androidx.compose.ui.geometry.Offset.Zero
+        offset = Offset.Zero
     }
 
     Box(
@@ -55,31 +59,38 @@ fun MediaViewer(
         ) { page ->
             val url = mediaItems[page]
             val isVideo = url.contains(".mp4") || url.contains(".m3u8") || url.contains("video")
+            val isCurrentPage = pagerState.currentPage == page
 
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(1f, 5f)
-                            if (scale > 1f) {
-                                offset += pan
-                            } else {
-                                offset = androidx.compose.ui.geometry.Offset.Zero
+            if (isVideo) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isCurrentPage) {
+                        VideoPlayer(
+                            url = url,
+                            isMuted = false,
+                            autoPlay = true,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                if (scale > 1f) {
+                                    offset += pan
+                                } else {
+                                    offset = Offset.Zero
+                                }
                             }
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                if (isVideo) {
-                    VideoPlayer(
-                        url = url,
-                        isMuted = false,
-                        autoPlay = true,
-                        modifier = Modifier
-                            .fillMaxSize()
-                    )
-                } else {
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
                     val contentModifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer(

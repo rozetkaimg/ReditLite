@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.rozetka.domain.model.Comment
 import com.rozetka.domain.model.Post
 import com.rozetka.domain.model.VoteDirection
-import com.rozetka.domain.usecase.post.GetCommentsUseCase
 import com.rozetka.domain.repository.PostRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,10 +28,14 @@ class PostDetailViewModel(
     private val _state = MutableStateFlow<PostDetailState>(PostDetailState.Loading)
     val state: StateFlow<PostDetailState> = _state.asStateFlow()
 
-    fun loadPostDetail(postId: String) {
+    private val _currentSort = MutableStateFlow("best")
+    val currentSort: StateFlow<String> = _currentSort.asStateFlow()
+
+    fun loadPostDetail(postId: String, sort: String = "best") {
         viewModelScope.launch {
+            _currentSort.value = sort
             _state.value = PostDetailState.Loading
-            postRepository.getPostAndComments(postId).fold(
+            postRepository.getPostAndComments(postId, sort).fold(
                 onSuccess = { (post, comments) ->
                     _state.value = PostDetailState.Content(post, comments)
                 },
@@ -62,7 +65,7 @@ class PostDetailViewModel(
         val currentState = _state.value as? PostDetailState.Content ?: return
         viewModelScope.launch {
             postRepository.vote(currentState.post.id, direction).onSuccess {
-                _state.update { 
+                _state.update {
                     if (it is PostDetailState.Content) {
                         it.copy(post = it.post.copy(voteStatus = direction))
                     } else it
@@ -131,11 +134,9 @@ class PostDetailViewModel(
             postRepository.submitComment(parentId, text).onSuccess { newComment ->
                 _state.update { currentState ->
                     if (currentState is PostDetailState.Content) {
-                        // If parent is the post, add to top level
                         if (parentId == currentState.post.id) {
                             currentState.copy(comments = listOf(newComment) + currentState.comments)
                         } else {
-                            // Find parent comment and add reply
                             val updatedComments = addReplyToComments(currentState.comments, parentId, newComment)
                             currentState.copy(comments = updatedComments)
                         }

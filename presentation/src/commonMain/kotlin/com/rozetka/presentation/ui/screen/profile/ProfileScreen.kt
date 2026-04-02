@@ -25,6 +25,10 @@ import com.rozetka.domain.model.Trophy
 import com.rozetka.presentation.ui.screen.profile.ProfileViewModel
 import com.rozetka.presentation.ui.screen.profile.ProfileUiState
 
+import org.jetbrains.compose.resources.stringResource
+import com.rozetka.presentation.generated.resources.Res
+import com.rozetka.presentation.generated.resources.*
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
@@ -37,7 +41,7 @@ fun ProfileScreen(
         topBar = {
             TopAppBar(
                 modifier = Modifier.statusBarsPadding(),
-                title = { Text("Мой Профиль", style = MaterialTheme.typography.headlineMedium) },
+                title = { Text(stringResource(Res.string.profile_title), style = MaterialTheme.typography.headlineMedium) },
                 actions = {
                     IconButton(onClick = { 
                         Napier.e("Test error logged to Crashlytics via Napier", Throwable("Napier Test Error"))
@@ -60,7 +64,7 @@ fun ProfileScreen(
                     IconButton(onClick = { viewModel.logout { onLogout() } }) {
                         Icon(
                             imageVector = Icons.Default.ExitToApp,
-                            contentDescription = "Logout",
+                            contentDescription = stringResource(Res.string.logout),
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
@@ -79,7 +83,7 @@ fun ProfileScreen(
                 }
                 uiState.errorMessage != null -> {
                     Text(
-                        text = "Ошибка: ${uiState.errorMessage}",
+                        text = stringResource(Res.string.error_loading, uiState.errorMessage ?: ""),
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -101,7 +105,7 @@ fun ProfileContent(uiState: ProfileUiState) {
     ) {
         item {
             ProfileHeaderCard(
-                name = uiState.profile?.name ?: "Unknown",
+                name = uiState.profile?.name ?: stringResource(Res.string.unknown_user),
                 karma = uiState.profile?.totalKarma ?: 0
             )
         }
@@ -109,7 +113,7 @@ fun ProfileContent(uiState: ProfileUiState) {
         if (uiState.trophies.isNotEmpty()) {
             item {
                 Text(
-                    text = "Трофеи",
+                    text = stringResource(Res.string.trophies),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
@@ -125,7 +129,7 @@ fun ProfileContent(uiState: ProfileUiState) {
 
         item {
             Text(
-                text = "Сохраненное",
+                text = stringResource(Res.string.saved_title),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -182,7 +186,7 @@ fun ProfileHeaderCard(name: String, karma: Int) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "$karma кармы",
+                        text = stringResource(Res.string.karma_count, karma),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                     )

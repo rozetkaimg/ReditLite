@@ -29,6 +29,10 @@ import coil3.compose.AsyncImage
 import com.rozetka.domain.model.Post
 import com.rozetka.presentation.ui.components.VideoPlayer
 
+import org.jetbrains.compose.resources.stringResource
+import com.rozetka.presentation.generated.resources.Res
+import com.rozetka.presentation.generated.resources.*
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun PostCard(
@@ -59,7 +63,7 @@ fun PostCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "r/${post.subreddit} • by ${post.author}",
+                    text = "r/${post.subreddit} • ${stringResource(Res.string.by_author, post.author)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clickable { onSubredditClick(post.subreddit) }
@@ -71,7 +75,7 @@ fun PostCard(
                 ) {
                     Icon(
                         imageVector = if (post.isSaved) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
-                        contentDescription = if (post.isSaved) "Unsave" else "Save",
+                        contentDescription = if (post.isSaved) stringResource(Res.string.unsave) else stringResource(Res.string.save),
                         tint = if (post.isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
@@ -120,7 +124,7 @@ fun PostCard(
                     ) {
                         Icon(
                             imageVector = if (isMuted) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeUp,
-                            contentDescription = if (isMuted) "Unmute" else "Mute",
+                            contentDescription = if (isMuted) stringResource(Res.string.unmute) else stringResource(Res.string.mute),
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
@@ -173,7 +177,7 @@ fun PostCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.KeyboardArrowUp,
-                            contentDescription = "Upvote",
+                            contentDescription = stringResource(Res.string.upvote),
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier
                                 .size(24.dp)
@@ -190,7 +194,7 @@ fun PostCard(
 
                         Icon(
                             imageVector = Icons.Outlined.KeyboardArrowDown,
-                            contentDescription = "Downvote",
+                            contentDescription = stringResource(Res.string.downvote),
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier
                                 .size(24.dp)
@@ -212,7 +216,7 @@ fun PostCard(
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.ChatBubbleOutline,
-                            contentDescription = "Comments",
+                            contentDescription = stringResource(Res.string.comments),
                             tint = MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(20.dp)
                         )

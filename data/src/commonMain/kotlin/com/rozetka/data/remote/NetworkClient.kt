@@ -17,10 +17,14 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.util.encodeBase64
 import kotlinx.serialization.json.Json
 
-fun createHttpClient(storageManager: SecureStorageManager): HttpClient {
+import io.ktor.client.plugins.HttpSend
+import io.ktor.client.plugins.plugin
+import io.ktor.client.statement.HttpResponse
+
+fun createHttpClient(storageManager: SecureStorageManager, rateLimitManager: RateLimitManager): HttpClient {
     val jsonConfig = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    return HttpClient {
+    val client = HttpClient {
         install(ContentNegotiation) {
             json(jsonConfig)
         }
@@ -66,4 +70,25 @@ fun createHttpClient(storageManager: SecureStorageManager): HttpClient {
             header(HttpHeaders.UserAgent, "CMPApp/1.0.0")
         }
     }
+
+    client.plugin(HttpSend).intercept { request ->
+        rateLimitManager.checkAndDelay()
+        val call = execute(request)
+        val response = call.response
+        
+        val remaining = response.headers["x-ratelimit-remaining"]?.toFloatOrNull()
+        val reset = response.headers["x-ratelimit-reset"]?.toIntOrNull()
+        
+        rateLimitManager.update(remaining, reset)
+
+        if (response.status.value == 429) {
+            rateLimitManager.handle429()
+            // Можно добавить повторную попытку после паузы, если нужно
+            // return@intercept execute(request)
+        }
+        
+        call
+    }
+
+    return client
 }

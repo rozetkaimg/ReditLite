@@ -3,6 +3,7 @@
 import com.rozetka.presentation.ui.screen.favorites.FavoritesViewModel
 import com.rozetka.presentation.ui.screen.feed.FeedViewModel
 import com.rozetka.presentation.ui.screen.login.AuthViewModel
+import com.rozetka.presentation.ui.screen.postCreation.PostCreationViewModel
 import com.rozetka.presentation.ui.screen.postDetail.PostDetailViewModel
 import com.rozetka.presentation.ui.screen.profile.ProfileViewModel
 import com.rozetka.presentation.ui.screen.subreddit.SubredditDetailViewModel
@@ -19,4 +20,5 @@ val presentationModule = module {
     viewModel { SubredditsViewModel(get(), get(), get(), get()) }
     viewModel { FavoritesViewModel(get(), get(), get(), get()) }
     viewModel { SubredditDetailViewModel(get(), get()) }
+    viewModel { PostCreationViewModel(get(), get()) }
 }

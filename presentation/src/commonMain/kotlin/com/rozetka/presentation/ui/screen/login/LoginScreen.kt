@@ -12,6 +12,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.rozetka.presentation.mvi.AuthState
 
+import org.jetbrains.compose.resources.stringResource
+import com.rozetka.presentation.generated.resources.Res
+import com.rozetka.presentation.generated.resources.*
+
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
@@ -56,7 +60,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
-                        text = "Вход в RedditLite",
+                        text = stringResource(Res.string.login_title),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -67,7 +71,7 @@ fun LoginScreen(
                         shape = RoundedCornerShape(28.dp),
                         contentPadding = PaddingValues(horizontal = 32.dp, vertical = 20.dp)
                     ) {
-                        Text("Войти через Reddit", style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(Res.string.login_button), style = MaterialTheme.typography.titleLarge)
                     }
 
                     if (authState is AuthState.Error) {

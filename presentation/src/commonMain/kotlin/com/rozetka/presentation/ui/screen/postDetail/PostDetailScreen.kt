@@ -42,8 +42,11 @@ fun PostDetailScreen(
     onSubredditClick: (String) -> Unit
 ) {
     val state by viewModel.state.collectAsState()
+    val currentSort by viewModel.currentSort.collectAsState()
+    var showSortMenu by remember { mutableStateOf(false) }
     var replyingTo by remember { mutableStateOf<Comment?>(null) }
     var commentText by remember { mutableStateOf("") }
+    val sortOptions = listOf("best", "top", "new", "controversial")
 
     LaunchedEffect(postId) {
         viewModel.loadPostDetail(postId)
@@ -63,8 +66,29 @@ fun PostDetailScreen(
                     IconButton(onClick = { }) {
                         Icon(Icons.Outlined.Share, null)
                     }
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.MoreVert, null)
+                    Box {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(Icons.Default.MoreVert, null)
+                        }
+                        DropdownMenu(
+                            expanded = showSortMenu,
+                            onDismissRequest = { showSortMenu = false }
+                        ) {
+                            sortOptions.forEach { sort ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = sort.replaceFirstChar { it.uppercase() },
+                                            fontWeight = if (sort == currentSort) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    onClick = {
+                                        showSortMenu = false
+                                        viewModel.loadPostDetail(postId, sort)
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             )
@@ -106,19 +130,19 @@ fun PostDetailScreen(
                                 post = s.post,
                                 onPostClick = {},
                                 onSubredditClick = onSubredditClick,
-                                onVote = { direction -> 
-                                    viewModel.votePost(if (direction > 0) VoteDirection.UP else VoteDirection.DOWN) 
+                                onVote = { direction ->
+                                    viewModel.votePost(if (direction > 0) VoteDirection.UP else VoteDirection.DOWN)
                                 },
                                 onSaveClick = { viewModel.toggleSavePost() },
                                 onMediaClick = {}
                             )
-                            
+
                             if (!s.post.text.isNullOrBlank()) {
                                 Box(modifier = Modifier.padding(16.dp)) {
                                     Markdown(content = s.post.text!!)
                                 }
                             }
-                            
+
                             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
                         }
 
@@ -131,7 +155,7 @@ fun PostDetailScreen(
                                 onReply = { replyingTo = it }
                             )
                         }
-                        
+
                         item {
                             Spacer(modifier = Modifier.height(80.dp))
                         }
@@ -183,7 +207,7 @@ fun CommentInput(
                     }
                 }
             }
-            
+
             Row(
                 modifier = Modifier
                     .padding(12.dp)
@@ -204,7 +228,7 @@ fun CommentInput(
                     ),
                     maxLines = 5
                 )
-                
+
                 IconButton(
                     onClick = onSend,
                     enabled = text.isNotBlank(),
@@ -227,7 +251,31 @@ fun CommentItem(
     onVote: (VoteDirection) -> Unit,
     onReply: (Comment) -> Unit
 ) {
-    val depthOffset = (comment.depth * 16).dp
+    if (comment.author.isEmpty() && comment.body == "Load more comments...") {
+        TextButton(
+            onClick = { },
+            modifier = Modifier
+                .padding(start = (comment.depth * 12).dp + 16.dp, top = 4.dp, bottom = 4.dp)
+        ) {
+            Text(
+                text = comment.body,
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+        return
+    }
+
+    val depthColors = listOf(
+        Color(0xFF3498DB),
+        Color(0xFF2ECC71),
+        Color(0xFFF1C40F),
+        Color(0xFFE74C3C),
+        Color(0xFF9B59B6),
+        Color(0xFFE67E22)
+    )
+
+    val depthOffset = (comment.depth * 12).dp
 
     Column(
         modifier = Modifier
@@ -240,11 +288,13 @@ fun CommentItem(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             if (comment.depth > 0) {
+                val lineColor = depthColors[(comment.depth - 1) % depthColors.size]
+
                 Box(
                     modifier = Modifier
-                        .width(2.dp)
+                        .width(3.dp)
                         .fillMaxHeight()
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        .background(lineColor, RoundedCornerShape(1.5.dp))
                 )
                 Spacer(Modifier.width(12.dp))
             }
@@ -305,7 +355,7 @@ fun CommentItem(
                                 tint = if (comment.voteStatus == VoteDirection.UP) Color(0xFFFF4500) else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        
+
                         Text(
                             text = comment.score.toString(),
                             style = MaterialTheme.typography.labelMedium,

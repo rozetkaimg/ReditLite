@@ -6,6 +6,8 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.*
@@ -18,9 +20,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+
 import kotlinx.coroutines.launch
 
-data class OnboardingPage(val title: String, val description: String, val icon: ImageVector)
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
+import com.rozetka.presentation.generated.resources.Res
+import com.rozetka.presentation.generated.resources.*
+
+data class OnboardingPage(val title: StringResource, val description: StringResource, val icon: ImageVector)
 
 @Composable
 fun OnboardingScreen(
@@ -28,14 +36,24 @@ fun OnboardingScreen(
 ) {
     val pages = listOf(
         OnboardingPage(
-            title = "Что такое Reddit",
-            description = "Reddit — это огромная платформа для общения, где люди обсуждают всё на свете в тематических сообществах.",
+            title = Res.string.onboarding_title_1,
+            description = Res.string.onboarding_desc_1,
             icon = Icons.Default.Public
         ),
         OnboardingPage(
-            title = "Офлайн режим",
-            description = "Приложение кэширует посты, чтобы вы могли просматривать ленту даже когда нет интернета.",
+            title = Res.string.onboarding_title_2,
+            description = Res.string.onboarding_desc_2,
             icon = Icons.Default.WifiOff
+        ),
+        OnboardingPage(
+            title = Res.string.onboarding_title_3,
+            description = Res.string.onboarding_desc_3,
+            icon = Icons.AutoMirrored.Filled.List
+        ),
+        OnboardingPage(
+            title = Res.string.onboarding_title_4,
+            description = Res.string.onboarding_desc_4,
+            icon = Icons.Default.Favorite
         )
     )
 
@@ -66,7 +84,7 @@ fun OnboardingScreen(
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = MaterialTheme.shapes.extraLarge
                 ) {
-                    Text(text = if (pagerState.currentPage == pages.lastIndex) "Приступить" else "Далее")
+                    Text(text = if (pagerState.currentPage == pages.lastIndex) stringResource(Res.string.onboarding_finish) else stringResource(Res.string.onboarding_next))
                 }
             }
         }
@@ -75,10 +93,11 @@ fun OnboardingScreen(
             Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(imageVector = pages[page].icon, contentDescription = null, modifier = Modifier.size(120.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.height(48.dp))
-                Text(text = pages[page].title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                Text(text = stringResource(pages[page].title), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text(text = pages[page].description, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = stringResource(pages[page].description), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
+

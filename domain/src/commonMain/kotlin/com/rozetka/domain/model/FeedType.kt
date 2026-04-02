@@ -1,16 +1,17 @@
 package com.rozetka.domain.model
 
 sealed class FeedType(val path: String, val name: String) {
-    object HOT : FeedType("r/popular/hot", "Hot")
-    object NEW : FeedType("r/popular/new", "New")
-    object BEST : FeedType("r/popular/best", "Best")
-    object TOP : FeedType("r/popular/top", "Top")
+    object HOT : FeedType("hot", "Hot")
+    object NEW : FeedType("new", "New")
+    object BEST : FeedType("best", "Best")
+    object TOP : FeedType("top", "Top")
+    object RISING : FeedType("rising", "Rising")
     object SAVED : FeedType("saved", "Saved")
     data class Subreddit(val subredditName: String, val sort: String = "hot") : 
         FeedType("r/${subredditName}/${sort}", subredditName)
     
     companion object {
-        val entries by lazy { listOf(HOT, NEW, BEST, TOP, SAVED) }
+        val entries by lazy { listOf(HOT, NEW, BEST, TOP, RISING, SAVED) }
     }
     
     override fun equals(other: Any?): Boolean {

@@ -19,6 +19,10 @@ android {
     }
 }
 
+compose.resources {
+    packageOfResClass = "com.rozetka.presentation.generated.resources"
+}
+
 kotlin {
     androidTarget {
         compilerOptions { jvmTarget.set(JvmTarget.JVM_11) }
@@ -37,6 +41,8 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.compose.runtime)
             implementation(libs.compose.material3)
+            implementation(libs.compose.material3.windowSizeClass)
+            implementation(libs.compose.components.resources)
             implementation(libs.navigation.compose)
             implementation(libs.coil.compose)
             implementation(libs.napier)
