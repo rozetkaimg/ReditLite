@@ -1,0 +1,39 @@
+﻿package com.rozetka.data.di
+
+import com.rozetka.data.local.AppDatabase
+import com.rozetka.data.local.SecureStorageManager
+import com.rozetka.data.remote.RateLimitManager
+import com.rozetka.data.remote.createHttpClient
+import com.rozetka.data.repository.AuthRepositoryImpl
+import com.rozetka.data.repository.FeedRepositoryImpl
+import com.rozetka.data.repository.PostRepositoryImpl
+import com.rozetka.data.repository.RateLimitRepositoryImpl
+import com.rozetka.data.repository.SubredditRepositoryImpl
+import com.rozetka.data.repository.UserRepositoryImpl
+import com.rozetka.domain.repository.AuthRepository
+import com.rozetka.domain.repository.FeedRepository
+import com.rozetka.domain.repository.PostRepository
+import com.rozetka.domain.repository.RateLimitRepository
+import com.rozetka.domain.repository.SubredditRepository
+import com.rozetka.domain.repository.UserRepository
+import com.russhwolf.settings.Settings
+import org.koin.dsl.module
+
+val dataModule = module {
+    includes(platformDataModule)
+
+    single { Settings() }
+    single { SecureStorageManager(get()) }
+    single { RateLimitManager() }
+    single { createHttpClient(get(), get()) }
+    single { PostRepositoryImpl(get(), get()) }
+    single { get<AppDatabase>().postDao() }
+    single { get<AppDatabase>().userDao() }
+    single { get<AppDatabase>().subredditDao() }
+    single<AuthRepository> { AuthRepositoryImpl(get(), get()) }
+    single<FeedRepository> { FeedRepositoryImpl(get(), get()) }
+    single<PostRepository> { PostRepositoryImpl(get(), get()) }
+    single<SubredditRepository> { SubredditRepositoryImpl(get(), get()) }
+    single<UserRepository> { UserRepositoryImpl(get(), get(), get(), get()) }
+    single<RateLimitRepository> { RateLimitRepositoryImpl(get()) }
+}

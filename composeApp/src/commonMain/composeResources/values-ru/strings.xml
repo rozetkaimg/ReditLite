@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">ReditLite</string>
+    <string name="login">Вход</string>
+    <string name="logout">Выход</string>
+    <string name="posts">Посты</string>
+    <string name="comments">Комментарии</string>
+    <string name="profile">Профиль</string>
+    <string name="settings">Настройки</string>
+    <string name="search_hint">Поиск...</string>
+    <string name="retry">Повторить</string>
+    <string name="error_loading">Ошибка загрузки данных</string>
+    <string name="no_internet">Нет соединения с интернетом</string>
+    <string name="feed">Лента</string>
+    <string name="subscriptions">Подписки</string>
+    <string name="favorites">Избранное</string>
+</resources>
