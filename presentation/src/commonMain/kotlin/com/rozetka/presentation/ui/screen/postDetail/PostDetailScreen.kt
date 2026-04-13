@@ -4,7 +4,9 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -78,6 +80,7 @@ fun PostDetailScreen(
     var fullscreenMediaUrl by remember { mutableStateOf<String?>(null) }
 
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    val lazyListState = rememberLazyListState()
 
     shareTextData?.let { data ->
         ShareText(text = data.first, title = data.second)
@@ -95,7 +98,6 @@ fun PostDetailScreen(
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) }
         ) { targetUrl ->
             if (targetUrl == null) {
-                LaunchedEffect(Unit) { onToggleBottomBar(true) }
                 Scaffold(
                     modifier = Modifier
                         .fillMaxSize()
@@ -167,6 +169,7 @@ fun PostDetailScreen(
                                 }
 
                                 LazyColumn(
+                                    state = lazyListState,
                                     modifier = Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(
                                         top = paddingValues.calculateTopPadding(),

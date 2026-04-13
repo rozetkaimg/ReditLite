@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rozetka.domain.usecase.subreddit.GetMySubredditsUseCase
 import com.rozetka.domain.usecase.subreddit.ObserveMySubredditsUseCase
+import com.rozetka.domain.usecase.subreddit.SearchSubredditsUseCase
 import com.rozetka.domain.usecase.subreddit.ToggleFavoriteSubredditUseCase
 import com.rozetka.domain.usecase.subreddit.ToggleSubscriptionUseCase
 import com.rozetka.presentation.mvi.SubredditsEffect
@@ -24,7 +25,8 @@ class SubredditsViewModel(
     private val getMySubredditsUseCase: GetMySubredditsUseCase,
     private val observeMySubredditsUseCase: ObserveMySubredditsUseCase,
     private val toggleSubscriptionUseCase: ToggleSubscriptionUseCase,
-    private val toggleFavoriteSubredditUseCase: ToggleFavoriteSubredditUseCase
+    private val toggleFavoriteSubredditUseCase: ToggleFavoriteSubredditUseCase,
+    private val searchSubredditsUseCase: SearchSubredditsUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SubredditsState())
@@ -49,6 +51,7 @@ class SubredditsViewModel(
     fun handleIntent(intent: SubredditsIntent) {
         when (intent) {
             is SubredditsIntent.LoadSubreddits -> loadSubreddits()
+            is SubredditsIntent.SearchSubreddits -> searchSubreddits(intent.query)
             is SubredditsIntent.ToggleSubscription -> toggleSubscription(intent)
             is SubredditsIntent.ToggleFavorite -> toggleFavorite(intent)
             is SubredditsIntent.NavigateToSubreddit -> {
@@ -84,6 +87,24 @@ class SubredditsViewModel(
     private fun toggleFavorite(intent: SubredditsIntent.ToggleFavorite) {
         viewModelScope.launch {
             toggleFavoriteSubredditUseCase(intent.subreddit.name, !intent.subreddit.isFavorite)
+        }
+    }
+
+    private fun searchSubreddits(query: String) {
+        _state.update { it.copy(searchQuery = query) }
+        viewModelScope.launch {
+            if (query.isBlank()) {
+                _state.update { it.copy(searchResults = emptyList(), isLoading = false) }
+                return@launch
+            }
+            _state.update { it.copy(isLoading = true) }
+            searchSubredditsUseCase(query)
+                .onSuccess { results ->
+                    _state.update { it.copy(searchResults = results, isLoading = false) }
+                }
+                .onFailure { error ->
+                    _state.update { it.copy(isLoading = false, error = error.message) }
+                }
         }
     }
 }

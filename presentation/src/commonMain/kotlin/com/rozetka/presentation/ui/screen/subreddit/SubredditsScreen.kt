@@ -1,22 +1,24 @@
 package com.rozetka.presentation.ui.screen.subreddit
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,10 +35,17 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 fun SubredditsScreen(
     viewModel: SubredditsViewModel,
-    onNavigateToSubreddit: (String) -> Unit
+    onNavigateToSubreddit: (String) -> Unit,
+    onToggleBottomBar: (Boolean) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+    var isSearchActive by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isSearchActive) {
+        onToggleBottomBar(!isSearchActive)
+    }
 
     LaunchedEffect(Unit) {
         viewModel.effect.collectLatest { effect ->
@@ -53,38 +62,79 @@ fun SubredditsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Subscriptions") },
-                actions = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.Search, contentDescription = null)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+            if (isSearchActive) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().statusBarsPadding(),
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 3.dp
+                ) {
+                    TextField(
+                        value = state.searchQuery,
+                        onValueChange = { viewModel.handleIntent(SubredditsIntent.SearchSubreddits(it)) },
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
+                        placeholder = { Text("Search subreddits...") },
+                        leadingIcon = {
+                            IconButton(onClick = {
+                                isSearchActive = false
+                                viewModel.handleIntent(SubredditsIntent.SearchSubreddits(""))
+                            }) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = null)
+                            }
+                        },
+                        trailingIcon = {
+                            if (state.searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { viewModel.handleIntent(SubredditsIntent.SearchSubreddits("")) }) {
+                                    Icon(Icons.Default.Close, contentDescription = null)
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(32.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+                    )
+                }
+            } else {
+                TopAppBar(
+                    title = { Text("Subscriptions") },
+                    actions = {
+                        IconButton(onClick = { isSearchActive = true }) {
+                            Icon(Icons.Default.Search, contentDescription = null)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
                 )
-            )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (state.isLoading && state.subreddits.isEmpty()) {
+            val displayList = if (isSearchActive) state.searchResults else state.subreddits
+            
+            if (state.isLoading && displayList.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else if (state.subreddits.isEmpty() && !state.isLoading) {
+            } else if (displayList.isEmpty() && !state.isLoading) {
                 Text(
-                    text = "No subscriptions found",
+                    text = if (isSearchActive) "No results found" else "No subscriptions found",
                     modifier = Modifier.align(Alignment.Center),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.subreddits, key = { it.id }) { subreddit ->
+                    items(displayList, key = { it.id }) { subreddit ->
                         SubredditItem(
                             subreddit = subreddit,
                             onClick = { viewModel.handleIntent(SubredditsIntent.NavigateToSubreddit(subreddit.name)) },
@@ -95,7 +145,7 @@ fun SubredditsScreen(
                 }
             }
 
-            if (state.isLoading && state.subreddits.isNotEmpty()) {
+            if (state.isLoading && displayList.isNotEmpty()) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter))
             }
         }

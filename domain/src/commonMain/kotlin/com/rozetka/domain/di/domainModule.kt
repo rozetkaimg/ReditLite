@@ -22,6 +22,7 @@ val domainModule = module {
     factory { ObserveMySubredditsUseCase(get()) }
     factory { ToggleSubscriptionUseCase(get()) }
     factory { ToggleFavoriteSubredditUseCase(get()) }
+    factory { SearchSubredditsUseCase(get()) }
     factory { GetSavedPostsUseCase(get()) }
     factory { ToggleSavePostUseCase(get()) }
 }

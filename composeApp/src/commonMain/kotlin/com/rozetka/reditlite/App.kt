@@ -293,7 +293,8 @@ fun App(
                                     viewModel = viewModel,
                                     onNavigateToSubreddit = { subredditName ->
                                         navController.navigate("subreddit/$subredditName")
-                                    }
+                                    },
+                                    onToggleBottomBar = { isBottomBarVisible = it }
                                 )
                             }
 
@@ -310,6 +311,9 @@ fun App(
                                     onUserClick = { username ->
                                         navController.navigate("profile/$username")
                                     },
+                                    onSubredditClick = { subreddit ->
+                                        navController.navigate("subreddit/$subreddit")
+                                    },
                                     onToggleBottomBar = { isBottomBarVisible = it }
                                 )
                             }
@@ -321,12 +325,13 @@ fun App(
                                     onPostClick = { postId ->
                                         navController.navigate("detail/$postId")
                                     },
-                                    onSubredditClick = { subredditName ->
-                                        navController.navigate("subreddit/$subredditName")
-                                    },
                                     onUserClick = { username ->
                                         navController.navigate("profile/$username")
-                                    }
+                                    },
+                                    onSubredditClick = { subreddit ->
+                                        navController.navigate("subreddit/$subreddit")
+                                    },
+                                    onToggleBottomBar = { isBottomBarVisible = it }
                                 )
                             }
 
@@ -337,11 +342,11 @@ fun App(
                                     postId = postId,
                                     viewModel = viewModel,
                                     onBack = { navController.popBackStack() },
-                                    onSubredditClick = { subredditName ->
-                                        navController.navigate("subreddit/$subredditName")
-                                    },
                                     onUserClick = { username ->
                                         navController.navigate("profile/$username")
+                                    },
+                                    onSubredditClick = { subreddit ->
+                                        navController.navigate("subreddit/$subreddit")
                                     },
                                     onToggleBottomBar = { isBottomBarVisible = it }
                                 )
@@ -373,6 +378,9 @@ fun App(
                                     onUserClick = { username ->
                                         navController.navigate("profile/$username")
                                     },
+                                    onSubredditClick = { subreddit ->
+                                        navController.navigate("subreddit/$subreddit")
+                                    },
                                     onToggleBottomBar = { isBottomBarVisible = it }
                                 )
                             }
@@ -390,6 +398,9 @@ fun App(
                                     },
                                     onUserClick = { clickedUsername ->
                                         navController.navigate("profile/$clickedUsername")
+                                    },
+                                    onSubredditClick = { subreddit ->
+                                        navController.navigate("subreddit/$subreddit")
                                     },
                                     onToggleBottomBar = { isBottomBarVisible = it }
                                 )

@@ -24,6 +24,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.rozetka.presentation.mvi.ProfileEffect
+import com.rozetka.presentation.mvi.ProfileIntent
+import com.rozetka.presentation.mvi.ProfileState
 import com.rozetka.presentation.ui.screen.profile.components.*
 import com.rozetka.presentation.ui.screen.feed.components.PostCard
 import com.rozetka.presentation.ui.components.ImageViewer
@@ -33,6 +36,7 @@ import com.rozetka.presentation.generated.resources.*
 import org.monogram.presentation.core.ui.CollapsingToolbarScaffold
 import org.monogram.presentation.core.ui.rememberCollapsingToolbarScaffoldState
 import org.monogram.presentation.core.util.ScrollStrategy
+import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -43,16 +47,26 @@ fun ProfileScreen(
     onBack: () -> Unit,
     onPostClick: (String) -> Unit = {},
     onUserClick: (String) -> Unit = {},
+    onSubredditClick: (String) -> Unit = {},
     onToggleBottomBar: (Boolean) -> Unit = {}
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.state.collectAsState()
     var fullscreenMediaUrl by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(username) {
-        viewModel.loadProfileData(username)
+        viewModel.handleIntent(ProfileIntent.LoadProfile(username))
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.effect.collectLatest { effect ->
+            if (effect is ProfileEffect.NavigateToLogin) {
+                onLogout()
+            }
+        }
     }
 
     val states = rememberCollapsingToolbarScaffoldState()
+    val lazyListState = rememberLazyListState()
     val collapsedColor = MaterialTheme.colorScheme.surface
     val expandedColor = MaterialTheme.colorScheme.surfaceContainerHigh
     val dynamicContainerColor = lerp(
@@ -68,8 +82,6 @@ fun ProfileScreen(
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) }
         ) { targetUrl ->
             if (targetUrl == null) {
-                LaunchedEffect(Unit) { onToggleBottomBar(true) }
-
                 Scaffold(
                     topBar = {
                         TopAppBar(
@@ -92,7 +104,7 @@ fun ProfileScreen(
                             },
                             actions = {
                                 if (username == null) {
-                                    IconButton(onClick = { viewModel.logout { onLogout() } }) {
+                                    IconButton(onClick = { viewModel.handleIntent(ProfileIntent.Logout) }) {
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                                             contentDescription = stringResource(Res.string.logout),
@@ -119,18 +131,18 @@ fun ProfileScreen(
                             uiState.isLoading && uiState.profile == null -> {
                                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                             }
-                            uiState.errorMessage != null -> {
+                            uiState.error != null -> {
                                 Column(
                                     modifier = Modifier.align(Alignment.Center),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
                                     Text(
-                                        text = stringResource(Res.string.error_loading, uiState.errorMessage ?: ""),
+                                        text = stringResource(Res.string.error_loading, uiState.error ?: ""),
                                         color = MaterialTheme.colorScheme.error,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Button(onClick = { viewModel.loadProfileData() }) {
+                                    Button(onClick = { viewModel.handleIntent(ProfileIntent.LoadProfile(username)) }) {
                                         Text(stringResource(Res.string.retry))
                                     }
                                 }
@@ -156,7 +168,8 @@ fun ProfileScreen(
                                         ) {
                                             ProfileHeaderSection(
                                                 profile = uiState.profile!!,
-                                                progress = states.toolbarState.progress
+                                                progress = states.toolbarState.progress,
+                                                onSubredditClick = onSubredditClick
                                             )
                                         }
                                     }
@@ -171,8 +184,10 @@ fun ProfileScreen(
                                     ) {
                                         ProfileContent(
                                             uiState = uiState,
+                                            lazyListState = lazyListState,
                                             onPostClick = onPostClick,
                                             onUserClick = onUserClick,
+                                            onSubredditClick = onSubredditClick,
                                             onMediaClick = { url ->
                                                 fullscreenMediaUrl = url
                                                 onToggleBottomBar(false)
@@ -206,15 +221,16 @@ fun ProfileScreen(
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun ProfileContent(
-    uiState: ProfileUiState,
+    uiState: ProfileState,
+    lazyListState: androidx.compose.foundation.lazy.LazyListState,
     onPostClick: (String) -> Unit,
     onUserClick: (String) -> Unit,
+    onSubredditClick: (String) -> Unit,
     onMediaClick: (String) -> Unit,
     sharedTransitionScope: androidx.compose.animation.SharedTransitionScope,
     animatedVisibilityScope: androidx.compose.animation.AnimatedVisibilityScope
 ) {
     val profile = uiState.profile!!
-    val lazyListState = rememberLazyListState()
     
     LazyColumn(
         state = lazyListState,
@@ -249,6 +265,7 @@ fun ProfileContent(
                     onVote = { },
                     onSaveClick = { },
                     onUserClick = onUserClick,
+                    onSubredditClick = onSubredditClick,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope
                 )
@@ -272,6 +289,7 @@ fun ProfileContent(
                     onVote = { },
                     onSaveClick = { },
                     onUserClick = onUserClick,
+                    onSubredditClick = onSubredditClick,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope
                 )
@@ -279,7 +297,7 @@ fun ProfileContent(
         }
         
         item {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp + 80.dp))
         }
     }
 }

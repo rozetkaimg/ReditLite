@@ -10,3 +10,13 @@
 # Add any project-specific rules here that should be preserved.
 # Napier
 -keep class io.github.aakira.napier.** { *; }
+
+# Keep domain and data classes to prevent NoClassDefFoundError
+-keep class com.rozetka.domain.** { *; }
+-keep class com.rozetka.data.** { *; }
+-keep class com.rozetka.presentation.** { *; }
+
+# Koin rules
+-keepclassmembers class * {
+    @org.koin.core.annotation.KoinInternalApi *;
+}

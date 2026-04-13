@@ -3,11 +3,13 @@ package com.rozetka.presentation.ui.screen.feed.components
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -18,31 +20,24 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.animation.core.*
-import coil3.compose.SubcomposeAsyncImage
 import coil3.compose.LocalPlatformContext
+import coil3.compose.SubcomposeAsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.mikepenz.markdown.m3.Markdown
 import com.rozetka.domain.model.Post
 import com.rozetka.domain.model.VoteDirection
+import com.rozetka.presentation.generated.resources.*
+import com.rozetka.presentation.ui.components.ShareText
 import com.rozetka.presentation.ui.components.VideoPlayer
 import org.jetbrains.compose.resources.stringResource
-import com.rozetka.presentation.generated.resources.Res
-import com.rozetka.presentation.generated.resources.*
-
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.ui.composed
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.text.style.TextAlign
-import com.rozetka.presentation.ui.components.ShareText
 
 fun Modifier.shimmerEffect(): Modifier = composed {
     val transition = rememberInfiniteTransition(label = "shimmer")
@@ -78,6 +73,7 @@ fun PostCard(
     onVote: (Int) -> Unit,
     onSaveClick: () -> Unit,
     onMediaClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
     onSubredditClick: (String) -> Unit = {},
     onUserClick: (String) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -92,7 +88,7 @@ fun PostCard(
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
@@ -100,7 +96,11 @@ fun PostCard(
             onClick = onPostClick
         ) {
             Column(modifier = Modifier.padding(bottom = 16.dp)) {
-                Row(modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 0.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 0.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "r/${post.subreddit}",
@@ -130,11 +130,11 @@ fun PostCard(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 val decodedTitle = remember(post.title) {
                     post.title.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
                 }
-                
+
                 Markdown(
                     content = decodedTitle,
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -155,8 +155,7 @@ fun PostCard(
             ) {
                 if (post.isVideo && videoUrl != null) {
                     var isMuted by remember { mutableStateOf(true) }
-                    var isVideoLoading by remember { mutableStateOf(true) }
-                    
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -169,12 +168,8 @@ fun PostCard(
                             url = videoUrl,
                             isMuted = isMuted,
                             modifier = Modifier.fillMaxSize(),
-                            autoPlay = true // Можно добавить логику автоплея при видимости
+                            autoPlay = true
                         )
-                        
-                        // В реальном VideoPlayer нужно прокинуть состояние загрузки, 
-                        // здесь имитируем или накладываем поверх если есть поддержка в actual
-                        // CircularProgressIndicator(color = Color.White)
 
                         IconButton(
                             onClick = { isMuted = !isMuted },
@@ -204,12 +199,10 @@ fun PostCard(
                                     .data(galleryUrls[page])
                                     .crossfade(true)
                                     .build(),
-                                contentDescription = "Gallery image ${page + 1}",
+                                contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize().clickable { onMediaClick(galleryUrls[page]) },
-                                loading = {
-                                    Box(Modifier.fillMaxSize().shimmerEffect())
-                                },
+                                loading = { Box(Modifier.fillMaxSize().shimmerEffect()) },
                                 error = {
                                     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                                         Icon(Icons.Outlined.BrokenImage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -235,15 +228,13 @@ fun PostCard(
                 } else if (mediaUrl != null) {
                     SubcomposeAsyncImage(
                         model = ImageRequest.Builder(LocalPlatformContext.current).data(mediaUrl).crossfade(true).build(),
-                        contentDescription = "Post image",
+                        contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(16f/9f)
                             .clickable { onMediaClick(mediaUrl) },
-                        loading = {
-                            Box(Modifier.fillMaxSize().shimmerEffect())
-                        },
+                        loading = { Box(Modifier.fillMaxSize().shimmerEffect()) },
                         error = {
                             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Outlined.BrokenImage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -261,41 +252,87 @@ fun PostCard(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             onClick = onPostClick
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                        Icon(
-                            Icons.Outlined.KeyboardArrowUp, null,
-                            tint = if (post.voteStatus == VoteDirection.UP) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(24.dp).clip(CircleShape).clickable { onVote(1) }
-                        )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.height(36.dp).padding(horizontal = 4.dp)
+                    ) {
+                        IconButton(
+                            onClick = { onVote(1) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.KeyboardArrowUp,
+                                null,
+                                tint = if (post.voteStatus == VoteDirection.UP) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                         Text(
                             text = "${post.score}",
                             style = MaterialTheme.typography.labelLarge,
-                            color = when(post.voteStatus) { VoteDirection.UP -> MaterialTheme.colorScheme.primary; VoteDirection.DOWN -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSecondaryContainer },
-                            modifier = Modifier.padding(horizontal = 8.dp)
+                            color = when(post.voteStatus) {
+                                VoteDirection.UP -> MaterialTheme.colorScheme.primary
+                                VoteDirection.DOWN -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSecondaryContainer
+                            },
+                            modifier = Modifier.padding(horizontal = 4.dp)
                         )
-                        Icon(
-                            Icons.Outlined.KeyboardArrowDown, null,
-                            tint = if (post.voteStatus == VoteDirection.DOWN) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.size(24.dp).clip(CircleShape).clickable { onVote(-1) }
-                        )
-                    }
-                }
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onPostClick() }.padding(16.dp, 8.dp)) {
-                        Icon(Icons.Outlined.ChatBubbleOutline, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("${post.commentsCount}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        IconButton(
+                            onClick = { onVote(-1) },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.KeyboardArrowDown,
+                                null,
+                                tint = if (post.voteStatus == VoteDirection.DOWN) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
 
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.clickable { shareTextData = post.postUrl }
+                    modifier = Modifier.clip(CircleShape).clickable { onPostClick() }
                 ) {
-                    Box(modifier = Modifier.padding(12.dp), contentAlignment = Alignment.Center) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.height(36.dp).padding(horizontal = 12.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.ChatBubbleOutline,
+                            null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "${post.commentsCount}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.clip(CircleShape).clickable { shareTextData = post.postUrl }
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.height(36.dp).padding(horizontal = 16.dp)
+                    ) {
                         Icon(
                             Icons.Outlined.Share,
                             null,

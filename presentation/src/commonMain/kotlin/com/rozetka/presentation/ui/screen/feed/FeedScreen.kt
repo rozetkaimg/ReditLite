@@ -4,8 +4,11 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +40,7 @@ import com.rozetka.presentation.ui.components.ImageViewer
 import com.rozetka.presentation.ui.screen.feed.components.FeedFilterBar
 import com.rozetka.presentation.ui.screen.feed.components.PostCard
 import com.rozetka.presentation.ui.screen.feed.components.PostListShimmer
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
@@ -52,12 +56,44 @@ fun FeedScreen(
     val state by viewModel.state.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val currentFeedType by viewModel.currentFeedType.collectAsState()
-    val listState = rememberLazyListState()
+    val feedTypes = remember { FeedType.entries }
+    val pagerState = rememberPagerState(
+        initialPage = feedTypes.indexOf(currentFeedType).coerceAtLeast(0),
+        pageCount = { feedTypes.size }
+    )
+    val coroutineScope = rememberCoroutineScope()
+
+    val tabStates = remember { mutableStateMapOf<FeedType, FeedState>() }
+    val listStates = remember { feedTypes.associateWith { LazyListState() } }
+    val searchListState = rememberLazyListState()
+
+    LaunchedEffect(state, currentFeedType) {
+        val cachedState = tabStates[currentFeedType]
+        if (state is FeedState.Loading && cachedState is FeedState.Content) {
+        } else {
+            tabStates[currentFeedType] = state
+        }
+    }
 
     val density = LocalDensity.current
     val filterBarHeight = 72.dp
     val filterBarHeightPx = with(density) { filterBarHeight.toPx() }
     val filterOffsetHeightPx = rememberSaveable { mutableStateOf(0f) }
+
+    LaunchedEffect(pagerState.currentPage) {
+        val newFeedType = feedTypes[pagerState.currentPage]
+        filterOffsetHeightPx.value = 0f
+        if (newFeedType != currentFeedType) {
+            viewModel.processIntent(FeedIntent.LoadInitial(newFeedType))
+        }
+    }
+
+    LaunchedEffect(currentFeedType) {
+        val targetPage = feedTypes.indexOf(currentFeedType)
+        if (targetPage != -1 && targetPage != pagerState.currentPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
 
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
@@ -74,12 +110,6 @@ fun FeedScreen(
     var fullscreenMediaUrls by remember { mutableStateOf<List<String>?>(null) }
     var fullscreenStartIndex by remember { mutableStateOf(0) }
 
-    LaunchedEffect(currentFeedType) {
-        // Only scroll to top if we explicitly change the feed type, 
-        // not when returning from another screen.
-        // Actually, the FeedViewModel already handles the initial load.
-    }
-
     LaunchedEffect(state) {
         if (state !is FeedState.Loading && (state as? FeedState.Content)?.isPaginating != true) {
             isRefreshing = false
@@ -93,7 +123,6 @@ fun FeedScreen(
             label = "fullscreen_media"
         ) { targetUrls ->
             if (targetUrls == null) {
-                LaunchedEffect(Unit) { onToggleBottomBar(true) }
                 Scaffold(
                     modifier = Modifier.nestedScroll(nestedScrollConnection),
                     topBar = {
@@ -109,8 +138,7 @@ fun FeedScreen(
                                     TextField(
                                         value = searchQuery,
                                         onValueChange = { viewModel.onSearchQueryChanged(it) },
-                                        modifier = Modifier.fillMaxWidth()
-                                            .padding(16.dp, 16.dp, 16.dp, 4.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(16.dp, 16.dp, 16.dp, 4.dp),
                                         placeholder = { Text(stringResource(Res.string.search_reddit)) },
                                         leadingIcon = { Icon(Icons.Default.Search, null) },
                                         singleLine = true,
@@ -124,27 +152,18 @@ fun FeedScreen(
                                     )
                                 }
                                 val dynamicHeight = with(density) {
-                                    (filterBarHeightPx + filterOffsetHeightPx.value).toDp()
-                                        .coerceAtLeast(0.dp)
+                                    (filterBarHeightPx + filterOffsetHeightPx.value).toDp().coerceAtLeast(0.dp)
                                 }
-                                val chipsAlpha =
-                                    (1f + (filterOffsetHeightPx.value / filterBarHeightPx)).coerceIn(
-                                        0f,
-                                        1f
-                                    )
+                                val chipsAlpha = (1f + (filterOffsetHeightPx.value / filterBarHeightPx)).coerceIn(0f, 1f)
                                 Box(
-                                    modifier = Modifier.fillMaxWidth().height(dynamicHeight)
-                                        .clipToBounds().zIndex(0f)
+                                    modifier = Modifier.fillMaxWidth().height(dynamicHeight).clipToBounds().zIndex(0f)
                                 ) {
                                     FeedFilterBar(
-                                        selectedFeedType = currentFeedType,
+                                        selectedFeedType = feedTypes[pagerState.currentPage],
                                         onFeedTypeSelected = { feedType ->
-                                            if (currentFeedType != feedType) {
-                                                viewModel.processIntent(
-                                                    FeedIntent.LoadInitial(
-                                                        feedType
-                                                    )
-                                                )
+                                            val index = feedTypes.indexOf(feedType)
+                                            if (index != -1) {
+                                                coroutineScope.launch { pagerState.animateScrollToPage(index) }
                                             }
                                         },
                                         modifier = Modifier
@@ -172,96 +191,128 @@ fun FeedScreen(
                     }
                 ) { paddingValues ->
                     Box(
-                        modifier = Modifier.padding(top = paddingValues.calculateTopPadding())
+                        modifier = Modifier
+                            .padding(top = paddingValues.calculateTopPadding())
                             .fillMaxSize()
                     ) {
-                        if (state is FeedState.Loading) {
-                            PostListShimmer()
-                        }
-                        PullToRefreshBox(
-                            isRefreshing = isRefreshing,
-                            onRefresh = {
-                                isRefreshing = true
-                                viewModel.processIntent(FeedIntent.Refresh(currentFeedType))
-                            },
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            if (state is FeedState.Content) {
-                                val content = state as FeedState.Content
-                                LazyColumn(
-                                    state = listState,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentPadding = PaddingValues(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                                ) {
-                                    items(content.posts, key = { it.id }) { post ->
-                                        PostCard(
-                                            post = post,
-                                            onPostClick = { onPostClick(post) },
-                                            onVote = { dir ->
-                                                viewModel.processIntent(
-                                                    FeedIntent.Vote(
-                                                        post,
-                                                        when (dir) {
-                                                            1 -> VoteDirection.UP
-                                                            -1 -> VoteDirection.DOWN
-                                                            else -> VoteDirection.NONE
-                                                        }
-                                                    )
-                                                )
-                                            },
-                                            onMediaClick = { url ->
-                                                val urls = post.galleryUrls ?: listOfNotNull(url)
-                                                val index = urls.indexOf(url).coerceAtLeast(0)
-                                                fullscreenMediaUrls = urls
-                                                fullscreenStartIndex = index
-                                                onToggleBottomBar(false)
-                                            },
-                                            onSaveClick = {
-                                                viewModel.processIntent(
-                                                    FeedIntent.ToggleSave(
-                                                        post
-                                                    )
-                                                )
-                                            },
-                                            onSubredditClick = onSubredditClick,
-                                            onUserClick = onUserClick,
-                                            sharedTransitionScope = this@SharedTransitionLayout,
-                                            animatedVisibilityScope = this@AnimatedContent
-                                        )
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize(),
+                            beyondViewportPageCount = feedTypes.size
+                        ) { page ->
+                            val pageFeedType = feedTypes[page]
+                            val pageState = tabStates[pageFeedType] ?: FeedState.Loading
+                            val isCurrentPage = pagerState.currentPage == page
+
+                            val listState = if (searchQuery.isNotEmpty()) {
+                                searchListState
+                            } else {
+                                listStates[pageFeedType] ?: rememberLazyListState()
+                            }
+                            var firstItemId by rememberSaveable(pageFeedType) { mutableStateOf<String?>(null) }
+
+                            LaunchedEffect(pageState) {
+                                if (pageState is FeedState.Content) {
+                                    val currentFirstId = pageState.posts.firstOrNull()?.id
+                                    if (currentFirstId != null) {
+                                        if (firstItemId != null && firstItemId != currentFirstId) {
+                                            listState.scrollToItem(0)
+                                        }
+                                        firstItemId = currentFirstId
                                     }
-                                    if (content.isPaginating) {
-                                        item {
-                                            Box(
-                                                Modifier.fillMaxWidth().padding(16.dp),
-                                                Alignment.Center
-                                            ) {
-                                                CircularProgressIndicator(
-                                                    Modifier.size(
-                                                        32.dp
-                                                    )
+                                }
+                            }
+
+                            PullToRefreshBox(
+                                isRefreshing = isRefreshing && isCurrentPage,
+                                onRefresh = {
+                                    isRefreshing = true
+                                    viewModel.processIntent(FeedIntent.Refresh(pageFeedType))
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                when (pageState) {
+                                    is FeedState.Loading -> {
+                                        PostListShimmer()
+                                    }
+                                    is FeedState.Error -> {
+                                        Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                            Text(
+                                                pageState.message,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                    is FeedState.Content -> {
+                                        LazyColumn(
+                                            state = listState,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentPadding = PaddingValues(16.dp),
+                                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            items(pageState.posts, key = { it.id }) { post ->
+                                                PostCard(
+                                                    modifier = Modifier,
+                                                    post = post,
+                                                    onPostClick = { onPostClick(post) },
+                                                    onVote = { dir ->
+                                                        viewModel.processIntent(
+                                                            FeedIntent.Vote(
+                                                                post,
+                                                                when (dir) {
+                                                                    1 -> VoteDirection.UP
+                                                                    -1 -> VoteDirection.DOWN
+                                                                    else -> VoteDirection.NONE
+                                                                }
+                                                            )
+                                                        )
+                                                    },
+                                                    onMediaClick = { url ->
+                                                        val urls = post.galleryUrls ?: listOfNotNull(url)
+                                                        val index = urls.indexOf(url).coerceAtLeast(0)
+                                                        fullscreenMediaUrls = urls
+                                                        fullscreenStartIndex = index
+                                                        onToggleBottomBar(false)
+                                                    },
+                                                    onSaveClick = {
+                                                        viewModel.processIntent(FeedIntent.ToggleSave(post))
+                                                    },
+                                                    onSubredditClick = onSubredditClick,
+                                                    onUserClick = onUserClick,
+                                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                                    animatedVisibilityScope = this@AnimatedContent
                                                 )
+                                            }
+
+                                            if (pageState.isPaginating) {
+                                                item(key = "pagination_loader") {
+                                                    Box(
+                                                        Modifier.fillMaxWidth().padding(16.dp),
+                                                        Alignment.Center
+                                                    ) {
+                                                        CircularProgressIndicator(Modifier.size(32.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        val shouldLoadMore by remember {
+                                            derivedStateOf {
+                                                val layoutInfo = listState.layoutInfo
+                                                val totalItems = layoutInfo.totalItemsCount
+                                                val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                                totalItems > 0 && lastVisible >= totalItems - 5
+                                            }
+                                        }
+
+                                        LaunchedEffect(shouldLoadMore, pageState.isPaginating, isCurrentPage) {
+                                            if (shouldLoadMore && !pageState.isPaginating && isCurrentPage) {
+                                                viewModel.processIntent(FeedIntent.LoadNextPage(pageFeedType))
                                             }
                                         }
                                     }
-                                }
-                                val shouldLoadMore = remember {
-                                    derivedStateOf {
-                                        (listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index
-                                            ?: 0) >= listState.layoutInfo.totalItemsCount - 5
-                                    }
-                                }
-                                LaunchedEffect(shouldLoadMore.value) {
-                                    if (shouldLoadMore.value && !content.isPaginating) viewModel.processIntent(
-                                        FeedIntent.LoadNextPage(currentFeedType)
-                                    )
-                                }
-                            } else if (state is FeedState.Error) {
-                                Box(Modifier.fillMaxSize(), Alignment.Center) {
-                                    Text(
-                                        (state as FeedState.Error).message,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
+
+                                    else -> {}
                                 }
                             }
                         }

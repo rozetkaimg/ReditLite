@@ -11,6 +11,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +26,7 @@ import com.rozetka.presentation.ui.components.ShareText
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -50,18 +52,20 @@ fun SubredditDetailScreen(
     viewModel: SubredditDetailViewModel,
     onBack: () -> Unit,
     onPostClick: (String) -> Unit,
+    onSubredditClick: (String) -> Unit = {},
     onUserClick: (String) -> Unit = {},
     onToggleBottomBar: (Boolean) -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
-    var showAbout by remember { mutableStateOf(false) }
-    var fullscreenMediaUrl by remember { mutableStateOf<String?>(null) }
+    var showAbout by rememberSaveable { mutableStateOf(false) }
+    var fullscreenMediaUrl by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(subredditName) {
         viewModel.handleIntent(SubredditDetailIntent.LoadSubreddit(subredditName))
     }
 
     val states = rememberCollapsingToolbarScaffoldState()
+    val lazyListState = rememberLazyListState()
     val collapsedColor = MaterialTheme.colorScheme.surface
     val expandedColor = MaterialTheme.colorScheme.surfaceContainerHigh
     val dynamicContainerColor = lerp(
@@ -84,8 +88,6 @@ fun SubredditDetailScreen(
             transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(300)) }
         ) { targetUrl ->
             if (targetUrl == null) {
-                LaunchedEffect(Unit) { onToggleBottomBar(true) }
-
                 Scaffold(
                     topBar = {
                         TopAppBar(
@@ -177,7 +179,6 @@ fun SubredditDetailScreen(
                                         )
                                     ) {}
 
-                                        val lazyListState = rememberLazyListState()
                                         val shouldLoadMore = remember {
                                             derivedStateOf {
                                                 val lastVisibleItemIndex = lazyListState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -223,7 +224,7 @@ fun SubredditDetailScreen(
                                                     fullscreenMediaUrl = url
                                                     onToggleBottomBar(false)
                                                 },
-                                                onSubredditClick = { },
+                                                onSubredditClick = onSubredditClick,
                                                 onUserClick = onUserClick,
                                                 sharedTransitionScope = this@SharedTransitionLayout,
                                                 animatedVisibilityScope = this@AnimatedContent

@@ -9,20 +9,17 @@ import com.rozetka.domain.model.UserProfile
 import com.rozetka.domain.usecase.auth.LogoutUseCase
 import com.rozetka.domain.usecase.subreddit.GetProfileUseCase
 import com.rozetka.domain.repository.UserRepository
+import com.rozetka.presentation.mvi.ProfileEffect
+import com.rozetka.presentation.mvi.ProfileIntent
+import com.rozetka.presentation.mvi.ProfileState
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-data class ProfileUiState(
-    val isLoading: Boolean = true,
-    val profile: UserProfile? = null,
-    val trophies: List<Trophy> = emptyList(),
-    val savedPosts: List<Post> = emptyList(),
-    val userPosts: List<Post> = emptyList(),
-    val errorMessage: String? = null
-)
 
 class ProfileViewModel(
     private val getProfileUseCase: GetProfileUseCase,
@@ -30,12 +27,28 @@ class ProfileViewModel(
     private val logoutUseCase: LogoutUseCase
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ProfileUiState())
-    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    private val _state = MutableStateFlow(ProfileState())
+    val state: StateFlow<ProfileState> = _state.asStateFlow()
 
-    fun loadProfileData(username: String? = null) {
+    private val _effect = MutableSharedFlow<ProfileEffect>()
+    val effect: SharedFlow<ProfileEffect> = _effect.asSharedFlow()
+
+    private var lastUsername: String? = null
+
+    fun handleIntent(intent: ProfileIntent) {
+        when (intent) {
+            is ProfileIntent.LoadProfile -> {
+                lastUsername = intent.username
+                loadProfileData(intent.username)
+            }
+            is ProfileIntent.Logout -> logout()
+            is ProfileIntent.Refresh -> loadProfileData(lastUsername)
+        }
+    }
+
+    private fun loadProfileData(username: String? = null) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _state.update { it.copy(isLoading = true, error = null) }
 
             val profileResult = if (username == null) {
                 getProfileUseCase()
@@ -45,11 +58,11 @@ class ProfileViewModel(
 
             profileResult.fold(
                 onSuccess = { profile ->
-                    _uiState.update { it.copy(profile = profile) }
+                    _state.update { it.copy(profile = profile) }
                     loadTrophiesAndPosts(profile.name, isOwnProfile = username == null)
                 },
                 onFailure = { error ->
-                    _uiState.update { it.copy(isLoading = false, errorMessage = error.message) }
+                    _state.update { it.copy(isLoading = false, error = error.message) }
                 }
             )
         }
@@ -60,7 +73,7 @@ class ProfileViewModel(
         val savedPostsResult = if (isOwnProfile) userRepository.getSavedPosts(username) else Result.success(emptyList())
         val userPostsResult = userRepository.getUserPosts(username)
 
-        _uiState.update { state ->
+        _state.update { state ->
             state.copy(
                 isLoading = false,
                 trophies = trophiesResult.getOrDefault(emptyList()),
@@ -70,10 +83,10 @@ class ProfileViewModel(
         }
     }
 
-    fun logout(onLogoutComplete: () -> Unit) {
+    private fun logout() {
         viewModelScope.launch {
             logoutUseCase()
-            onLogoutComplete()
+            _effect.emit(ProfileEffect.NavigateToLogin)
         }
     }
 }

@@ -49,6 +49,16 @@ class SubredditRepositoryImpl(
         }
     }
 
+    override suspend fun searchSubreddits(query: String): Result<List<Subreddit>> {
+        return runCatching {
+            val response: RedditListingResponse = client.get("https://oauth.reddit.com/subreddits/search") {
+                parameter("q", query)
+            }.body()
+
+            response.data.children.map { it.data.toSubredditDomain() }
+        }
+    }
+
     override suspend fun getSubredditInfo(subredditName: String): Result<Subreddit> {
         return runCatching {
             val response: SubredditAboutResponse = client.get("https://oauth.reddit.com/r/$subredditName/about").body()

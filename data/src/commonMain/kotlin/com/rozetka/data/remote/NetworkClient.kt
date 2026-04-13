@@ -67,27 +67,28 @@ fun createHttpClient(storageManager: SecureStorageManager, rateLimitManager: Rat
             }
         }
         defaultRequest {
-            header(HttpHeaders.UserAgent, "CMPApp/1.0.0")
+            header(HttpHeaders.UserAgent, "android:com.rozetka.reditlite:1.0.0 (by /u/rozetkaimg)")
         }
     }
 
     client.plugin(HttpSend).intercept { request ->
-        rateLimitManager.checkAndDelay()
-        val call = execute(request)
-        val response = call.response
-        
-        val remaining = response.headers["x-ratelimit-remaining"]?.toFloatOrNull()
-        val reset = response.headers["x-ratelimit-reset"]?.toIntOrNull()
-        
-        rateLimitManager.update(remaining, reset)
+        if (request.url.host == "oauth.reddit.com") {
+            rateLimitManager.checkAndDelay()
+            val call = execute(request)
+            val response = call.response
+            
+            val remaining = response.headers["x-ratelimit-remaining"]?.toFloatOrNull()
+            val reset = response.headers["x-ratelimit-reset"]?.toIntOrNull()
+            
+            rateLimitManager.update(remaining, reset)
 
-        if (response.status.value == 429) {
-            rateLimitManager.handle429()
-            // Можно добавить повторную попытку после паузы, если нужно
-            // return@intercept execute(request)
+            if (response.status.value == 429) {
+                rateLimitManager.handle429()
+            }
+            call
+        } else {
+            execute(request)
         }
-        
-        call
     }
 
     return client

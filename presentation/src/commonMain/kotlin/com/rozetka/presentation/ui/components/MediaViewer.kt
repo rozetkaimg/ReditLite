@@ -27,6 +27,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.coroutineScope
@@ -46,29 +47,15 @@ fun MediaViewer(
     fileIds: List<Long> = emptyList(),
     captions: List<String?> = emptyList()
 ) {
-    val scope = rememberCoroutineScope()
     val pagerState = rememberPagerState(
         initialPage = startIndex.coerceIn(0, mediaItems.lastIndex.coerceAtLeast(0)),
         pageCount = { mediaItems.size }
     )
     
-    val zoomState = rememberZoomState()
-    val rootState = rememberDismissRootState()
     var showControls by remember { mutableStateOf(true) }
-
-    LaunchedEffect(Unit) {
-        launch {
-            rootState.scale.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium))
-        }
-        launch {
-            rootState.backgroundAlpha.animateTo(1f, tween(150))
-        }
-    }
 
     LaunchedEffect(pagerState.currentPage) {
         onPageChanged?.invoke(pagerState.currentPage)
-        zoomState.resetInstant(scope)
-        rootState.resetInstant(scope)
     }
 
     BackHandler(onBack = onDismiss)
@@ -76,12 +63,7 @@ fun MediaViewer(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = rootState.backgroundAlpha.value))
-            .graphicsLayer {
-                translationY = rootState.offsetY.value
-                scaleX = rootState.scale.value
-                scaleY = rootState.scale.value
-            }
+            .background(Color.Black.copy(alpha = 1f))
     ) {
         HorizontalPager(
             state = pagerState,
@@ -91,26 +73,50 @@ fun MediaViewer(
                 val path = mediaItems.getOrNull(page) ?: ""
                 if (id != 0L) "msg_$id" else "path_$path"
             },
-            userScrollEnabled = zoomState.scale.value == 1f && rootState.offsetY.value == 0f,
+            userScrollEnabled = true,
             pageSpacing = 16.dp,
             beyondViewportPageCount = 1
         ) { page ->
+            val scope = rememberCoroutineScope()
+            val zoomState = rememberZoomState()
+            val rootState = rememberDismissRootState()
+
+            LaunchedEffect(Unit) {
+                launch {
+                    rootState.scale.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium))
+                }
+                launch {
+                    rootState.backgroundAlpha.animateTo(1f, tween(150))
+                }
+            }
+
             val rawUrl = mediaItems.getOrNull(page) ?: return@HorizontalPager
             val url = rawUrl.replace("&amp;", "&")
             val isVideo = isAlwaysVideo || isVideoPath(url)
             
-            MediaPage(
-                url = url,
-                isVideo = isVideo,
-                zoomState = zoomState,
-                rootState = rootState,
-                onDismiss = onDismiss,
-                showControls = showControls,
-                onToggleControls = { showControls = !showControls },
-                isActive = pagerState.currentPage == page,
-                sharedTransitionScope = sharedTransitionScope,
-                animatedVisibilityScope = animatedVisibilityScope
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = rootState.backgroundAlpha.value))
+                    .graphicsLayer {
+                        translationY = rootState.offsetY.value
+                        scaleX = rootState.scale.value
+                        scaleY = rootState.scale.value
+                    }
+            ) {
+                MediaPage(
+                    url = url,
+                    isVideo = isVideo,
+                    zoomState = zoomState,
+                    rootState = rootState,
+                    onDismiss = onDismiss,
+                    showControls = showControls,
+                    onToggleControls = { showControls = !showControls },
+                    isActive = pagerState.currentPage == page,
+                    sharedTransitionScope = sharedTransitionScope,
+                    animatedVisibilityScope = animatedVisibilityScope
+                )
+            }
         }
 
         AnimatedVisibility(
@@ -200,42 +206,24 @@ private fun MediaPage(
                 detectTapGestures(
                     onTap = { onToggleControls() },
                     onDoubleTap = { offset ->
-                        scope.launch {
-                            if (zoomState.scale.value > 1f) {
-                                zoomState.reset(scope)
-                            } else {
-                                zoomState.scale.animateTo(3f)
-                            }
+                        if (zoomState.scale.value > 1f) {
+                            zoomState.onDoubleTap(scope, offset, 1f, IntSize(size.width, size.height))
+                        } else {
+                            zoomState.onDoubleTap(scope, offset, 3f, IntSize(size.width, size.height))
                         }
                     }
                 )
             }
             .pointerInput(Unit) {
-                detectTransformGestures { _, pan, zoom, _ ->
-                    scope.launch {
-                        val newScale = (zoomState.scale.value * zoom).coerceIn(1f, 5f)
-                        zoomState.scale.snapTo(newScale)
-                        
-                        if (newScale > 1f) {
-                            val newOffset = zoomState.offset.value + pan
-                            zoomState.offset.snapTo(newOffset)
-                        } else if (zoomState.scale.value == 1f) {
-                            zoomState.offset.snapTo(Offset.Zero)
-                            
-                            val newOffsetY = rootState.offsetY.value + pan.y
-                            if (newOffsetY > 0 || rootState.offsetY.value > 0) {
-                                rootState.offsetY.snapTo(newOffsetY.coerceAtLeast(0f))
-                                val progress = (rootState.offsetY.value / 1000f).coerceIn(0f, 1f)
-                                rootState.scale.snapTo(1f - progress * 0.2f)
-                                rootState.backgroundAlpha.snapTo(1f - progress)
-                                
-                                if (rootState.offsetY.value > 600f) {
-                                    onDismiss()
-                                }
-                            }
-                        }
-                    }
-                }
+                detectZoomAndDismissGestures(
+                    zoomState = zoomState,
+                    rootState = rootState,
+                    screenHeightPx = size.height.toFloat(),
+                    dismissThreshold = 300f,
+                    dismissVelocityThreshold = 1000f,
+                    onDismiss = onDismiss,
+                    scope = scope
+                )
             },
         contentAlignment = Alignment.Center
     ) {
@@ -249,8 +237,8 @@ private fun MediaPage(
                     .graphicsLayer {
                         scaleX = zoomState.scale.value
                         scaleY = zoomState.scale.value
-                        translationX = zoomState.offset.value.x
-                        translationY = zoomState.offset.value.y
+                        translationX = zoomState.offsetX.value
+                        translationY = zoomState.offsetY.value
                     }
             )
             
@@ -275,8 +263,8 @@ private fun MediaPage(
                 .graphicsLayer {
                     scaleX = zoomState.scale.value
                     scaleY = zoomState.scale.value
-                    translationX = zoomState.offset.value.x
-                    translationY = zoomState.offset.value.y
+                    translationX = zoomState.offsetX.value
+                    translationY = zoomState.offsetY.value
                 }
 
             if (sharedTransitionScope != null && animatedVisibilityScope != null) {
@@ -302,7 +290,7 @@ private fun MediaPage(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(16.dp)
-                        .padding(bottom = if (showControls) 48.dp else 0.dp) // Offset if controls are shown
+                        .padding(bottom = if (showControls) 48.dp else 0.dp)
                 ) {
                     Text(
                         text = "GIF",

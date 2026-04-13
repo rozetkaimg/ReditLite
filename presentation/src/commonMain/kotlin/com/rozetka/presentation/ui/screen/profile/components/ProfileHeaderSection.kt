@@ -1,6 +1,7 @@
 package com.rozetka.presentation.ui.screen.profile.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,7 +29,11 @@ import kotlinx.datetime.toLocalDateTime
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun ProfileHeaderSection(profile: UserProfile, progress: Float) {
+fun ProfileHeaderSection(
+    profile: UserProfile,
+    progress: Float,
+    onSubredditClick: (String) -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -75,7 +80,8 @@ fun ProfileHeaderSection(profile: UserProfile, progress: Float) {
         Text(
             text = "u/${profile.name}",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable { onSubredditClick("u_${profile.name}") }
         )
 
         val bio = profile.bio
