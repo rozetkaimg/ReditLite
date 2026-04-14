@@ -233,7 +233,7 @@ private fun MediaPage(
                 isMuted = isMuted,
                 autoPlay = isActive,
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .graphicsLayer {
                         scaleX = zoomState.scale.value
                         scaleY = zoomState.scale.value

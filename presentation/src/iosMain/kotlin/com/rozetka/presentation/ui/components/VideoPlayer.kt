@@ -2,6 +2,7 @@ package com.rozetka.presentation.ui.components
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.interop.LocalUIViewController
 import androidx.compose.ui.interop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFoundation.*
@@ -10,9 +11,10 @@ import platform.AVFAudio.AVAudioSession
 import platform.AVFAudio.AVAudioSessionCategoryPlayback
 import platform.AVFAudio.setActive
 import platform.Foundation.NSURL
-import platform.QuartzCore.CATransaction
-import platform.QuartzCore.kCATransactionDisableActions
-import platform.UIKit.UIView
+import platform.UIKit.addChildViewController
+import platform.UIKit.didMoveToParentViewController
+import platform.UIKit.removeFromParentViewController
+import platform.UIKit.willMoveToParentViewController
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
@@ -24,6 +26,7 @@ actual fun VideoPlayer(
 ) {
     val player = remember { AVPlayer() }
     val viewController = remember { AVPlayerViewController() }
+    val rootViewController = LocalUIViewController.current
 
     LaunchedEffect(Unit) {
         val session = AVAudioSession.sharedInstance()
@@ -32,11 +35,14 @@ actual fun VideoPlayer(
     }
 
     LaunchedEffect(url) {
-        val asset = AVAsset.assetWithURL(NSURL.URLWithString(url)!!)
-        val playerItem = AVPlayerItem(asset = asset)
-        player.replaceCurrentItemWithPlayerItem(playerItem)
-        if (autoPlay) {
-            player.play()
+        val nsUrl = NSURL.URLWithString(url)
+        if (nsUrl != null) {
+            val asset = AVAsset.assetWithURL(nsUrl)
+            val playerItem = AVPlayerItem(asset = asset)
+            player.replaceCurrentItemWithPlayerItem(playerItem)
+            if (autoPlay) {
+                player.play()
+            }
         }
     }
 
@@ -44,9 +50,13 @@ actual fun VideoPlayer(
         player.muted = isMuted
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(viewController) {
+        rootViewController.addChildViewController(viewController)
+        viewController.didMoveToParentViewController(rootViewController)
         onDispose {
             player.pause()
+            viewController.willMoveToParentViewController(null)
+            viewController.removeFromParentViewController()
         }
     }
 
@@ -58,6 +68,8 @@ actual fun VideoPlayer(
             viewController.view
         },
         modifier = modifier,
-        update = { _ -> }
+        update = { _ ->
+            viewController.player = player
+        }
     )
 }
