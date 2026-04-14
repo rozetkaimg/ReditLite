@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -26,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
+import coil3.network.HttpException
 import com.rozetka.domain.model.Post
 import com.rozetka.domain.model.VoteDirection
 import com.rozetka.presentation.ui.components.VideoPlayer
@@ -36,6 +40,7 @@ fun PostCard(
     post: Post,
     onPostClick: () -> Unit,
     onVote: (VoteDirection) -> Unit = {},
+    onSave: () -> Unit = {},
     onMediaClick: (String) -> Unit = {},
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null
@@ -74,7 +79,7 @@ fun PostCard(
                 overflow = TextOverflow.Ellipsis
             )
 
-            val videoUrl = post.videoUrl
+            val videoUrl = post.videoUrl?.replace("&amp;", "&")
             if (post.isVideo && videoUrl != null) {
                 Spacer(modifier = Modifier.height(16.dp))
                 var isMuted by remember { mutableStateOf(true) }
@@ -122,10 +127,19 @@ fun PostCard(
                     ) {
                         if (sharedTransitionScope != null && animatedVisibilityScope != null) {
                             with(sharedTransitionScope) {
-                                AsyncImage(
+                                SubcomposeAsyncImage(
                                     model = imageUrl,
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
+                                    error = { state ->
+                                        val errorCode = (state.result.throwable as? HttpException)?.response?.code ?: 404
+                                        AsyncImage(
+                                            model = "https://http.cat/$errorCode",
+                                            contentDescription = "Error $errorCode",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    },
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .sharedElement(
@@ -137,10 +151,19 @@ fun PostCard(
                                 )
                             }
                         } else {
-                            AsyncImage(
+                            SubcomposeAsyncImage(
                                 model = imageUrl,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
+                                error = { state ->
+                                    val errorCode = (state.result.throwable as? HttpException)?.response?.code ?: 404
+                                    AsyncImage(
+                                        model = "https://http.cat/$errorCode",
+                                        contentDescription = "Error $errorCode",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                },
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(20.dp))
@@ -202,6 +225,22 @@ fun PostCard(
                             tint = if (post.voteStatus == VoteDirection.DOWN) Color(0xFF7193FF) else MaterialTheme.colorScheme.onSurface
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                IconButton(
+                    onClick = onSave,
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp))
+                        .size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (post.isSaved) Icons.Outlined.Bookmark else Icons.Outlined.BookmarkBorder,
+                        contentDescription = if (post.isSaved) "Unsave" else "Save",
+                        tint = if (post.isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))

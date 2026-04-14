@@ -19,6 +19,6 @@ val presentationModule = module {
     viewModel { ProfileViewModel(get(), get(), get()) }
     viewModel { SubredditsViewModel(get(), get(), get(), get(), get()) }
     viewModel { FavoritesViewModel(get(), get(), get(), get()) }
-    viewModel { SubredditDetailViewModel(get(), get()) }
+    viewModel { SubredditDetailViewModel(get(), get(), get()) }
     viewModel { PostCreationViewModel(get(), get()) }
 }

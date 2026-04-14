@@ -218,8 +218,19 @@ fun SubredditDetailScreen(
                                             PostCard(
                                                 post = post,
                                                 onPostClick = { onPostClick(post.id) },
-                                                onVote = { },
-                                                onSaveClick = { },
+                                                onVote = { directionInt ->
+                                                    val direction = if (directionInt > 0) {
+                                                        if (post.voteStatus == com.rozetka.domain.model.VoteDirection.UP) com.rozetka.domain.model.VoteDirection.NONE
+                                                        else com.rozetka.domain.model.VoteDirection.UP
+                                                    } else {
+                                                        if (post.voteStatus == com.rozetka.domain.model.VoteDirection.DOWN) com.rozetka.domain.model.VoteDirection.NONE
+                                                        else com.rozetka.domain.model.VoteDirection.DOWN
+                                                    }
+                                                    viewModel.handleIntent(SubredditDetailIntent.VotePost(post.id, direction))
+                                                },
+                                                onSaveClick = {
+                                                    viewModel.handleIntent(SubredditDetailIntent.SavePost(post.id))
+                                                },
                                                 onMediaClick = { url ->
                                                     fullscreenMediaUrl = url
                                                     onToggleBottomBar(false)

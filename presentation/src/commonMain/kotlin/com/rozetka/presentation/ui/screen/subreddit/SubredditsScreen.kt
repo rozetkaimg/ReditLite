@@ -26,6 +26,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
+import coil3.network.HttpException
 import com.rozetka.domain.model.Subreddit
 import com.rozetka.presentation.mvi.SubredditsEffect
 import com.rozetka.presentation.mvi.SubredditsIntent
@@ -41,10 +43,9 @@ fun SubredditsScreen(
     val state by viewModel.state.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
-    var isSearchActive by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isSearchActive) {
-        onToggleBottomBar(!isSearchActive)
+    LaunchedEffect(state.isSearchActive) {
+        onToggleBottomBar(!state.isSearchActive)
     }
 
     LaunchedEffect(Unit) {
@@ -62,7 +63,7 @@ fun SubredditsScreen(
 
     Scaffold(
         topBar = {
-            if (isSearchActive) {
+            if (state.isSearchActive) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().statusBarsPadding(),
                     color = MaterialTheme.colorScheme.surface,
@@ -75,8 +76,7 @@ fun SubredditsScreen(
                         placeholder = { Text("Search subreddits...") },
                         leadingIcon = {
                             IconButton(onClick = {
-                                isSearchActive = false
-                                viewModel.handleIntent(SubredditsIntent.SearchSubreddits(""))
+                                viewModel.handleIntent(SubredditsIntent.SetSearchActive(false))
                             }) {
                                 Icon(Icons.Default.ArrowBack, contentDescription = null)
                             }
@@ -102,7 +102,7 @@ fun SubredditsScreen(
                 TopAppBar(
                     title = { Text("Subscriptions") },
                     actions = {
-                        IconButton(onClick = { isSearchActive = true }) {
+                        IconButton(onClick = { viewModel.handleIntent(SubredditsIntent.SetSearchActive(true)) }) {
                             Icon(Icons.Default.Search, contentDescription = null)
                         }
                     },
@@ -116,13 +116,13 @@ fun SubredditsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            val displayList = if (isSearchActive) state.searchResults else state.subreddits
+            val displayList = if (state.isSearchActive) state.searchResults else state.subreddits
             
             if (state.isLoading && displayList.isEmpty()) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (displayList.isEmpty() && !state.isLoading) {
                 Text(
-                    text = if (isSearchActive) "No results found" else "No subscriptions found",
+                    text = if (state.isSearchActive) "No results found" else "No subscriptions found",
                     modifier = Modifier.align(Alignment.Center),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -162,15 +162,16 @@ fun SubredditItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick),
+            .clip(RoundedCornerShape(24.dp)),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .clickable(onClick = onClick)
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
@@ -189,9 +190,18 @@ fun SubredditItem(
             val iconUrl = subreddit.iconUrl?.takeIf { it.isNotBlank() }
 
             if (iconUrl != null) {
-                AsyncImage(
+                SubcomposeAsyncImage(
                     model = iconUrl,
                     contentDescription = null,
+                    error = { state ->
+                        val errorCode = (state.result.throwable as? HttpException)?.response?.code ?: 404
+                        AsyncImage(
+                            model = "https://http.cat/$errorCode",
+                            contentDescription = "Error $errorCode",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    },
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape),

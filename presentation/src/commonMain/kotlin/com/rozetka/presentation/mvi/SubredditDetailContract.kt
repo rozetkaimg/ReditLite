@@ -18,4 +18,6 @@ sealed class SubredditDetailIntent {
     object Refresh : SubredditDetailIntent()
     object LoadMore : SubredditDetailIntent()
     object ToggleSubscription : SubredditDetailIntent()
+    data class VotePost(val postId: String, val direction: com.rozetka.domain.model.VoteDirection) : SubredditDetailIntent()
+    data class SavePost(val postId: String) : SubredditDetailIntent()
 }

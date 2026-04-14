@@ -43,7 +43,23 @@ class SubredditsViewModel(
     private fun observeSubreddits() {
         observeMySubredditsUseCase()
             .onEach { subreddits ->
-                _state.update { it.copy(subreddits = subreddits) }
+                _state.update { currentState ->
+                    val updatedSearchResults = currentState.searchResults.map { searchResult ->
+                        val local = subreddits.find { it.name == searchResult.name }
+                        if (local != null) {
+                            searchResult.copy(
+                                isSubscribed = local.isSubscribed,
+                                isFavorite = local.isFavorite
+                            )
+                        } else {
+                            searchResult
+                        }
+                    }
+                    currentState.copy(
+                        subreddits = subreddits,
+                        searchResults = updatedSearchResults
+                    )
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -52,6 +68,12 @@ class SubredditsViewModel(
         when (intent) {
             is SubredditsIntent.LoadSubreddits -> loadSubreddits()
             is SubredditsIntent.SearchSubreddits -> searchSubreddits(intent.query)
+            is SubredditsIntent.SetSearchActive -> {
+                _state.update { it.copy(isSearchActive = intent.active) }
+                if (!intent.active) {
+                    searchSubreddits("")
+                }
+            }
             is SubredditsIntent.ToggleSubscription -> toggleSubscription(intent)
             is SubredditsIntent.ToggleFavorite -> toggleFavorite(intent)
             is SubredditsIntent.NavigateToSubreddit -> {
@@ -91,6 +113,8 @@ class SubredditsViewModel(
     }
 
     private fun searchSubreddits(query: String) {
+        if (query == _state.value.searchQuery && _state.value.searchResults.isNotEmpty()) return
+
         _state.update { it.copy(searchQuery = query) }
         viewModelScope.launch {
             if (query.isBlank()) {

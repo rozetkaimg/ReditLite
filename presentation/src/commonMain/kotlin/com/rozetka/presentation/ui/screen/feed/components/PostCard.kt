@@ -27,8 +27,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.compose.SubcomposeAsyncImage
+import coil3.network.HttpException
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.mikepenz.markdown.m3.Markdown
@@ -142,9 +144,9 @@ fun PostCard(
             }
         }
 
-        val mediaUrl = post.mediaUrl
-        val videoUrl = post.videoUrl
-        val galleryUrls = post.galleryUrls
+        val mediaUrl = post.mediaUrl?.replace("&amp;", "&")
+        val videoUrl = post.videoUrl?.replace("&amp;", "&")
+        val galleryUrls = post.galleryUrls?.map { it.replace("&amp;", "&") }
 
         if (post.isVideo || mediaUrl != null || !galleryUrls.isNullOrEmpty()) {
             Spacer(modifier = Modifier.height(4.dp))
@@ -203,10 +205,14 @@ fun PostCard(
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize().clickable { onMediaClick(galleryUrls[page]) },
                                 loading = { Box(Modifier.fillMaxSize().shimmerEffect()) },
-                                error = {
-                                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Outlined.BrokenImage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
+                                error = { state ->
+                                    val errorCode = (state.result.throwable as? HttpException)?.response?.code ?: 404
+                                    AsyncImage(
+                                        model = "https://http.cat/$errorCode",
+                                        contentDescription = "Error $errorCode",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
                                 }
                             )
                         }
@@ -235,10 +241,14 @@ fun PostCard(
                             .aspectRatio(16f/9f)
                             .clickable { onMediaClick(mediaUrl) },
                         loading = { Box(Modifier.fillMaxSize().shimmerEffect()) },
-                        error = {
-                            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Outlined.BrokenImage, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                        error = { state ->
+                            val errorCode = (state.result.throwable as? HttpException)?.response?.code ?: 404
+                            AsyncImage(
+                                model = "https://http.cat/$errorCode",
+                                contentDescription = "Error $errorCode",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                     )
                 }

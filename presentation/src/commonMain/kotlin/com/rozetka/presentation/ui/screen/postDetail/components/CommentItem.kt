@@ -25,6 +25,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
+import coil3.network.HttpException
 import com.rozetka.domain.model.Comment
 import com.rozetka.domain.model.VoteDirection
 import com.rozetka.presentation.generated.resources.Res
@@ -97,14 +99,27 @@ fun CommentItem(
                 .clickable { onCollapseToggle() }
                 .padding(vertical = 4.dp)
         ) {
-            AsyncImage(
-                model = comment.authorIconUrl ?: "https://www.redditstatic.com/avatars/defaults/v2/avatar_default_0.png",
+            val authorIconUrl = remember(comment.authorIconUrl) {
+                comment.authorIconUrl?.replace("&amp;", "&") ?: "https://www.redditstatic.com/avatars/defaults/v2/avatar_default_0.png"
+            }
+
+            SubcomposeAsyncImage(
+                model = authorIconUrl,
                 contentDescription = null,
                 modifier = Modifier
                     .size(24.dp)
                     .clip(CircleShape)
                     .clickable { onUserClick(comment.author) },
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                error = { state ->
+                    val errorCode = (state.result.throwable as? HttpException)?.response?.code ?: 404
+                    AsyncImage(
+                        model = "https://http.cat/$errorCode",
+                        contentDescription = "Error $errorCode",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             )
             Spacer(Modifier.width(8.dp))
             Text(

@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import coil3.compose.SubcomposeAsyncImage
+import coil3.network.HttpException
 import com.mikepenz.markdown.m3.Markdown
 import com.rozetka.presentation.generated.resources.Res
 import com.rozetka.presentation.generated.resources.*
@@ -133,27 +134,16 @@ fun MediaContent(
                                         )
                                     }
                                 },
-                                error = {
-                                    Box(
+                                error = { state ->
+                                    val errorCode = (state.result.throwable as? HttpException)?.response?.code ?: 404
+                                    AsyncImage(
+                                        model = "https://http.cat/$errorCode",
+                                        contentDescription = "Error $errorCode",
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(100.dp)
-                                            .background(MaterialTheme.colorScheme.errorContainer),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Icon(
-                                                imageVector = Icons.Default.Warning,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                            Text(
-                                                text = stringResource(Res.string.error_loading_media),
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onErrorContainer
-                                            )
-                                        }
-                                    }
+                                            .height(200.dp),
+                                        contentScale = ContentScale.Crop
+                                    )
                                 }
                             )
                             if (isGif) {

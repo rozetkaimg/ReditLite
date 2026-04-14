@@ -6,6 +6,7 @@ data class SubredditsState(
     val subreddits: List<Subreddit> = emptyList(),
     val searchResults: List<Subreddit> = emptyList(),
     val searchQuery: String = "",
+    val isSearchActive: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -13,6 +14,7 @@ data class SubredditsState(
 sealed class SubredditsIntent {
     object LoadSubreddits : SubredditsIntent()
     data class SearchSubreddits(val query: String) : SubredditsIntent()
+    data class SetSearchActive(val active: Boolean) : SubredditsIntent()
     data class ToggleSubscription(val subreddit: Subreddit) : SubredditsIntent()
     data class ToggleFavorite(val subreddit: Subreddit) : SubredditsIntent()
     data class NavigateToSubreddit(val name: String) : SubredditsIntent()

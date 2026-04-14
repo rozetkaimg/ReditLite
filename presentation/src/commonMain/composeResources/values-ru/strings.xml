@@ -22,7 +22,7 @@
     <string name="mute">Выключить звук</string>
     <string name="upvote">За</string>
     <string name="downvote">Против</string>
-    <string name="by_author">от %s</string>
+    <string name="by_author">от %1$s</string>
     <string name="profile_title">Мой Профиль</string>
     <string name="saved_title">Сохраненные посты</string>
     <string name="my_posts_title">Мои посты</string>
@@ -31,9 +31,9 @@
     <string name="comment_karma">Карма комментариев</string>
     <string name="total_karma">Всего кармы</string>
     <string name="joined_date">В сети с %s</string>
-    <string name="user_handle">u/%s</string>
-    <string name="subreddit_handle">r/%s</string>
-    <string name="author_handle"> • u/%s</string>
+    <string name="user_handle">u/%1$s</string>
+    <string name="subreddit_handle">r/%1$s</string>
+    <string name="author_handle"> • u/%1$s</string>
     <string name="trophies_title">Трофеи (%d)</string>
     <string name="unknown_user">Неизвестно</string>
     <string name="onboarding_title_1">Что такое Reddit</string>

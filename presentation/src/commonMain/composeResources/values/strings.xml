@@ -22,7 +22,7 @@
     <string name="mute">Mute</string>
     <string name="upvote">Upvote</string>
     <string name="downvote">Downvote</string>
-    <string name="by_author">by %s</string>
+    <string name="by_author">by %1$s</string>
     <string name="profile_title">My Profile</string>
     <string name="saved_title">Saved Posts</string>
     <string name="karma_count">%d</string>
@@ -30,10 +30,10 @@
     <string name="comment_karma">Comment Karma</string>
     <string name="total_karma">Total Karma</string>
     <string name="joined_date">Member for %s</string>
-    <string name="user_handle">u/%s</string>
+    <string name="user_handle">u/%1$s</string>
     <string name="my_posts_title">My Posts</string>
-    <string name="subreddit_handle">r/%s</string>
-    <string name="author_handle"> • u/%s</string>
+    <string name="subreddit_handle">r/%1$s</string>
+    <string name="author_handle"> • u/%1$s</string>
     <string name="trophies_title">Trophies (%d)</string>
     <string name="unknown_user">Unknown</string>
     <string name="onboarding_title_1">What is Reddit</string>
@@ -48,7 +48,7 @@
     <string name="onboarding_desc_4">Save your favorite posts to access them quickly later, even offline.</string>
     <string name="share_post">Share Post</string>
     <string name="post_detail_title">Post</string>
-    <string name="replying_to">Replying to u/%s</string>
+    <string name="replying_to">Replying to u/%1$s</string>
     <string name="add_comment_placeholder">Add a comment</string>
     <string name="view_button">View</string>
     <string name="load_more_comments">Load more comments...</string>

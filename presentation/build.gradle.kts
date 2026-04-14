@@ -53,6 +53,7 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.navigation.compose)
             implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor)
             implementation(libs.coil.gif)
             implementation(libs.napier)
             implementation(libs.multiplatform.markdown.renderer.m3)

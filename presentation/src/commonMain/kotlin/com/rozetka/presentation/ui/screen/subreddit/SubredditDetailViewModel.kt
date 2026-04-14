@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rozetka.domain.model.FeedType
 import com.rozetka.domain.repository.FeedRepository
+import com.rozetka.domain.repository.PostRepository
 import com.rozetka.domain.repository.SubredditRepository
 import com.rozetka.presentation.mvi.SubredditDetailIntent
 import com.rozetka.presentation.mvi.SubredditDetailState
@@ -15,7 +16,8 @@ import kotlinx.coroutines.launch
 
 class SubredditDetailViewModel(
     private val subredditRepository: SubredditRepository,
-    private val feedRepository: FeedRepository
+    private val feedRepository: FeedRepository,
+    private val postRepository: PostRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SubredditDetailState())
@@ -27,6 +29,63 @@ class SubredditDetailViewModel(
             is SubredditDetailIntent.Refresh -> refresh()
             is SubredditDetailIntent.LoadMore -> loadMore()
             is SubredditDetailIntent.ToggleSubscription -> toggleSubscription()
+            is SubredditDetailIntent.VotePost -> votePost(intent.postId, intent.direction)
+            is SubredditDetailIntent.SavePost -> savePost(intent.postId)
+        }
+    }
+
+    private fun votePost(postId: String, direction: com.rozetka.domain.model.VoteDirection) {
+        viewModelScope.launch {
+            val result = postRepository.vote(postId, direction)
+            if (result.isSuccess) {
+                _state.update { state ->
+                    state.copy(
+                        posts = state.posts.map { post ->
+                            if (post.id == postId) {
+                                val currentVote = post.voteStatus
+                                val newScore = when {
+                                    currentVote == direction -> post.score // No change if same vote
+                                    direction == com.rozetka.domain.model.VoteDirection.NONE -> {
+                                        if (currentVote == com.rozetka.domain.model.VoteDirection.UP) post.score - 1
+                                        else post.score + 1
+                                    }
+                                    direction == com.rozetka.domain.model.VoteDirection.UP -> {
+                                        if (currentVote == com.rozetka.domain.model.VoteDirection.DOWN) post.score + 2
+                                        else post.score + 1
+                                    }
+                                    direction == com.rozetka.domain.model.VoteDirection.DOWN -> {
+                                        if (currentVote == com.rozetka.domain.model.VoteDirection.UP) post.score - 2
+                                        else post.score - 1
+                                    }
+                                    else -> post.score
+                                }
+                                post.copy(voteStatus = direction, score = newScore)
+                            } else post
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    private fun savePost(postId: String) {
+        viewModelScope.launch {
+            val post = _state.value.posts.find { it.id == postId } ?: return@launch
+            val result = if (post.isSaved) {
+                postRepository.unsavePost(postId)
+            } else {
+                postRepository.savePost(postId)
+            }
+
+            if (result.isSuccess) {
+                _state.update { state ->
+                    state.copy(
+                        posts = state.posts.map {
+                            if (it.id == postId) it.copy(isSaved = !it.isSaved) else it
+                        }
+                    )
+                }
+            }
         }
     }
 
