@@ -2,10 +2,14 @@ package com.rozetka.presentation.ui.screen.subreddit
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.rozetka.domain.model.FeedType
-import com.rozetka.domain.repository.FeedRepository
-import com.rozetka.domain.repository.PostRepository
-import com.rozetka.domain.repository.SubredditRepository
+import com.rozetka.domain.model.VoteDirection
+import com.rozetka.domain.usecase.feed.FetchSubredditFeedUseCase
+import com.rozetka.domain.usecase.post.SearchPostsUseCase
+import com.rozetka.domain.usecase.post.ToggleSavePostUseCase
+import com.rozetka.domain.usecase.post.VoteUseCase
+import com.rozetka.domain.usecase.subreddit.GetSubredditInfoUseCase
+import com.rozetka.domain.usecase.subreddit.GetSubredditRulesUseCase
+import com.rozetka.domain.usecase.subreddit.ToggleSubscriptionUseCase
 import com.rozetka.presentation.mvi.SubredditDetailIntent
 import com.rozetka.presentation.mvi.SubredditDetailState
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,9 +19,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class SubredditDetailViewModel(
-    private val subredditRepository: SubredditRepository,
-    private val feedRepository: FeedRepository,
-    private val postRepository: PostRepository
+    private val getSubredditInfoUseCase: GetSubredditInfoUseCase,
+    private val getSubredditRulesUseCase: GetSubredditRulesUseCase,
+    private val fetchSubredditFeedUseCase: FetchSubredditFeedUseCase,
+    private val voteUseCase: VoteUseCase,
+    private val toggleSavePostUseCase: ToggleSavePostUseCase,
+    private val searchPostsUseCase: SearchPostsUseCase,
+    private val toggleSubscriptionUseCase: ToggleSubscriptionUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(SubredditDetailState())
@@ -31,36 +39,54 @@ class SubredditDetailViewModel(
             is SubredditDetailIntent.ToggleSubscription -> toggleSubscription()
             is SubredditDetailIntent.VotePost -> votePost(intent.postId, intent.direction)
             is SubredditDetailIntent.SavePost -> savePost(intent.postId)
+            is SubredditDetailIntent.SearchPosts -> searchPosts(intent.query)
+            is SubredditDetailIntent.SetSearchActive -> setSearchActive(intent.active)
         }
     }
 
-    private fun votePost(postId: String, direction: com.rozetka.domain.model.VoteDirection) {
+    private fun setSearchActive(active: Boolean) {
+        _state.update { it.copy(isSearchActive = active) }
+        if (!active) {
+            _state.update { it.copy(searchQuery = "", searchResults = emptyList()) }
+        }
+    }
+
+    private fun searchPosts(query: String) {
+        _state.update { it.copy(searchQuery = query) }
+        if (query.isBlank()) {
+            _state.update { it.copy(searchResults = emptyList(), isLoading = false) }
+            return
+        }
+
         viewModelScope.launch {
-            val result = postRepository.vote(postId, direction)
-            if (result.isSuccess) {
+            val subreddit = _state.value.subreddit?.name ?: return@launch
+            _state.update { it.copy(isLoading = true) }
+            searchPostsUseCase(subreddit, query)
+                .onSuccess { results ->
+                    _state.update { it.copy(searchResults = results, isLoading = false) }
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(isLoading = false, error = e.message) }
+                }
+        }
+    }
+
+    private fun votePost(postId: String, direction: VoteDirection) {
+        val post = _state.value.posts.find { it.id == postId } ?: return
+        val finalDirection = if (post.voteStatus == direction) VoteDirection.NONE else direction
+
+        viewModelScope.launch {
+            voteUseCase(postId, post.voteStatus, direction).onSuccess {
                 _state.update { state ->
                     state.copy(
-                        posts = state.posts.map { post ->
-                            if (post.id == postId) {
-                                val currentVote = post.voteStatus
-                                val newScore = when {
-                                    currentVote == direction -> post.score // No change if same vote
-                                    direction == com.rozetka.domain.model.VoteDirection.NONE -> {
-                                        if (currentVote == com.rozetka.domain.model.VoteDirection.UP) post.score - 1
-                                        else post.score + 1
-                                    }
-                                    direction == com.rozetka.domain.model.VoteDirection.UP -> {
-                                        if (currentVote == com.rozetka.domain.model.VoteDirection.DOWN) post.score + 2
-                                        else post.score + 1
-                                    }
-                                    direction == com.rozetka.domain.model.VoteDirection.DOWN -> {
-                                        if (currentVote == com.rozetka.domain.model.VoteDirection.UP) post.score - 2
-                                        else post.score - 1
-                                    }
-                                    else -> post.score
-                                }
-                                post.copy(voteStatus = direction, score = newScore)
-                            } else post
+                        posts = state.posts.map {
+                            if (it.id == postId) {
+                                val scoreDiff = finalDirection.value - it.voteStatus.value
+                                it.copy(
+                                    voteStatus = finalDirection,
+                                    score = it.score + scoreDiff
+                                )
+                            } else it
                         }
                     )
                 }
@@ -71,13 +97,7 @@ class SubredditDetailViewModel(
     private fun savePost(postId: String) {
         viewModelScope.launch {
             val post = _state.value.posts.find { it.id == postId } ?: return@launch
-            val result = if (post.isSaved) {
-                postRepository.unsavePost(postId)
-            } else {
-                postRepository.savePost(postId)
-            }
-
-            if (result.isSuccess) {
+            toggleSavePostUseCase(post).onSuccess {
                 _state.update { state ->
                     state.copy(
                         posts = state.posts.map {
@@ -92,9 +112,9 @@ class SubredditDetailViewModel(
     private fun loadSubreddit(name: String) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
-            
-            val infoResult = subredditRepository.getSubredditInfo(name)
-            val rulesResult = subredditRepository.getSubredditRules(name)
+
+            val infoResult = getSubredditInfoUseCase(name)
+            val rulesResult = getSubredditRulesUseCase(name)
 
             infoResult.onSuccess { subreddit ->
                 val rules = rulesResult.getOrDefault(emptyList())
@@ -108,22 +128,21 @@ class SubredditDetailViewModel(
 
     private fun loadPosts(name: String, after: String? = null) {
         viewModelScope.launch {
-            val feedType = FeedType.Subreddit(name)
-            val result = feedRepository.fetchFeed(feedType, after)
-            
-            result.onSuccess { paginatedData ->
-                _state.update { 
-                    it.copy(
-                        posts = if (after == null) paginatedData.items else it.posts + paginatedData.items,
-                        after = paginatedData.after,
-                        isLoading = false,
-                        isRefreshing = false,
-                        isPaginating = false
-                    )
+            fetchSubredditFeedUseCase(name, after)
+                .onSuccess { paginatedData ->
+                    _state.update {
+                        it.copy(
+                            posts = if (after == null) paginatedData.items else it.posts + paginatedData.items,
+                            after = paginatedData.after,
+                            isLoading = false,
+                            isRefreshing = false,
+                            isPaginating = false
+                        )
+                    }
                 }
-            }.onFailure { e ->
-                _state.update { it.copy(isLoading = false, isRefreshing = false, isPaginating = false, error = e.message) }
-            }
+                .onFailure { e ->
+                    _state.update { it.copy(isLoading = false, isRefreshing = false, isPaginating = false, error = e.message) }
+                }
         }
     }
 
@@ -137,7 +156,7 @@ class SubredditDetailViewModel(
         val name = _state.value.subreddit?.name ?: return
         val after = _state.value.after ?: return
         if (_state.value.isPaginating) return
-        
+
         _state.update { it.copy(isPaginating = true) }
         loadPosts(name, after)
     }
@@ -145,17 +164,12 @@ class SubredditDetailViewModel(
     private fun toggleSubscription() {
         val subreddit = _state.value.subreddit ?: return
         viewModelScope.launch {
-            val result = if (subreddit.isSubscribed) {
-                subredditRepository.unsubscribe(subreddit.name)
-            } else {
-                subredditRepository.subscribe(subreddit.name)
-            }
-            
-            result.onSuccess {
-                _state.update { 
-                    it.copy(subreddit = subreddit.copy(isSubscribed = !subreddit.isSubscribed))
+            toggleSubscriptionUseCase(subreddit.name, subreddit.isSubscribed)
+                .onSuccess {
+                    _state.update {
+                        it.copy(subreddit = subreddit.copy(isSubscribed = !subreddit.isSubscribed))
+                    }
                 }
-            }
         }
     }
 }

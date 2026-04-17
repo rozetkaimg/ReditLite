@@ -19,4 +19,5 @@ interface PostRepository {
     suspend fun submitImagePostWithBytes(subreddit: String, title: String, imageBytes: ByteArray, fileName: String): Result<Unit>
     suspend fun submitComment(parentId: String, text: String, mediaBytes: ByteArray? = null, fileName: String? = null): Result<Comment>
     fun enqueuePostSubmission(subreddit: String, title: String, content: String, type: String, mediaUri: String? = null)
+    suspend fun searchPosts(subreddit: String, query: String): Result<List<Post>>
 }

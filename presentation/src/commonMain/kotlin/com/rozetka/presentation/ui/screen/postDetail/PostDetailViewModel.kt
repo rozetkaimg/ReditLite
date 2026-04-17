@@ -5,7 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.rozetka.domain.model.Comment
 import com.rozetka.domain.model.Post
 import com.rozetka.domain.model.VoteDirection
-import com.rozetka.domain.repository.PostRepository
+import com.rozetka.domain.usecase.post.GetPostAndCommentsUseCase
+import com.rozetka.domain.usecase.post.SubmitCommentUseCase
+import com.rozetka.domain.usecase.post.ToggleSavePostUseCase
+import com.rozetka.domain.usecase.post.VoteUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,7 +26,10 @@ sealed interface PostDetailState {
 }
 
 class PostDetailViewModel(
-    private val postRepository: PostRepository
+    private val getPostAndCommentsUseCase: GetPostAndCommentsUseCase,
+    private val voteUseCase: VoteUseCase,
+    private val toggleSavePostUseCase: ToggleSavePostUseCase,
+    private val submitCommentUseCase: SubmitCommentUseCase
 ) : ViewModel() {
     private val _state = MutableStateFlow<PostDetailState>(PostDetailState.Loading)
     val state: StateFlow<PostDetailState> = _state.asStateFlow()
@@ -46,7 +52,7 @@ class PostDetailViewModel(
         viewModelScope.launch {
             _currentSort.value = sort
             _state.value = PostDetailState.Loading
-            postRepository.getPostAndComments(postId, sort).fold(
+            getPostAndCommentsUseCase(postId, sort).fold(
                 onSuccess = { (post, comments) ->
                     _state.value = PostDetailState.Content(post, comments)
                 },
@@ -74,14 +80,16 @@ class PostDetailViewModel(
 
     fun votePost(direction: VoteDirection) {
         val currentState = _state.value as? PostDetailState.Content ?: return
+        val finalDirection = if (currentState.post.voteStatus == direction) VoteDirection.NONE else direction
+
         viewModelScope.launch {
-            postRepository.vote(currentState.post.id, direction).onSuccess {
+            voteUseCase(currentState.post.id, currentState.post.voteStatus, direction).onSuccess {
                 _state.update { state ->
                     if (state is PostDetailState.Content) {
-                        val scoreDiff = direction.value - state.post.voteStatus.value
+                        val scoreDiff = finalDirection.value - state.post.voteStatus.value
                         state.copy(
                             post = state.post.copy(
-                                voteStatus = direction,
+                                voteStatus = finalDirection,
                                 score = state.post.score + scoreDiff
                             )
                         )
@@ -94,12 +102,7 @@ class PostDetailViewModel(
     fun toggleSavePost() {
         val currentState = _state.value as? PostDetailState.Content ?: return
         viewModelScope.launch {
-            val result = if (currentState.post.isSaved) {
-                postRepository.unsavePost(currentState.post.id)
-            } else {
-                postRepository.savePost(currentState.post.id)
-            }
-            result.onSuccess {
+            toggleSavePostUseCase(currentState.post).onSuccess {
                 _state.update {
                     if (it is PostDetailState.Content) {
                         it.copy(post = it.post.copy(isSaved = !it.post.isSaved))
@@ -110,19 +113,24 @@ class PostDetailViewModel(
     }
 
     fun voteComment(commentId: String, direction: VoteDirection) {
+        val currentState = _state.value as? PostDetailState.Content ?: return
+
+        val targetComment = findCommentById(currentState.comments, commentId) ?: return
+        val finalDirection = if (targetComment.voteStatus == direction) VoteDirection.NONE else direction
+        val scoreDiff = finalDirection.value - targetComment.voteStatus.value
+
         viewModelScope.launch {
-            postRepository.vote(commentId, direction).onSuccess {
-                _state.update { currentState ->
-                    if (currentState is PostDetailState.Content) {
-                        val updatedComments = updateCommentInList(currentState.comments, commentId) { comment ->
-                            val scoreDiff = direction.value - comment.voteStatus.value
+            voteUseCase(commentId, targetComment.voteStatus, direction).onSuccess {
+                _state.update { state ->
+                    if (state is PostDetailState.Content) {
+                        val updatedComments = updateCommentInList(state.comments, commentId) { comment ->
                             comment.copy(
-                                voteStatus = direction,
+                                voteStatus = finalDirection,
                                 score = comment.score + scoreDiff
                             )
                         }
-                        currentState.copy(comments = updatedComments)
-                    } else currentState
+                        state.copy(comments = updatedComments)
+                    } else state
                 }
             }
         }
@@ -142,10 +150,18 @@ class PostDetailViewModel(
         }
     }
 
+    private fun findCommentById(comments: List<Comment>, commentId: String): Comment? {
+        comments.forEach { comment ->
+            if (comment.id == commentId) return comment
+            findCommentById(comment.replies, commentId)?.let { return it }
+        }
+        return null
+    }
+
     fun submitComment(parentId: String, text: String) {
         viewModelScope.launch {
             val media = _selectedMedia.value
-            postRepository.submitComment(parentId, text, media?.first, media?.second).onSuccess { newComment ->
+            submitCommentUseCase(parentId, text, media?.first, media?.second).onSuccess { newComment ->
                 clearMedia()
                 _state.update { currentState ->
                     if (currentState is PostDetailState.Content) {

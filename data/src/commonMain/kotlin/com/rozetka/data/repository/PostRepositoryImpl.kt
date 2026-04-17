@@ -268,6 +268,24 @@ class PostRepositoryImpl(
     ) {
     }
 
+    override suspend fun searchPosts(subreddit: String, query: String): Result<List<Post>> {
+        return runCatching {
+            val response = client.get("https://oauth.reddit.com/r/${subreddit.removePrefix("r/")}/search") {
+                parameter("q", query)
+                parameter("restrict_sr", "on")
+                parameter("sort", "relevance")
+                parameter("t", "all")
+            }
+
+            if (!response.status.isSuccess()) {
+                throw Exception("Failed to search posts: ${response.status}")
+            }
+
+            val listing = response.body<RedditListingResponse>()
+            listing.data.children.map { it.data.toDomain() }
+        }
+    }
+
     override suspend fun submitComment(
         parentId: String,
         text: String,

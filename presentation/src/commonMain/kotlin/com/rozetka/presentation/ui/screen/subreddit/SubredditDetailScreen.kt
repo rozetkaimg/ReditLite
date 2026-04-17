@@ -20,7 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import com.rozetka.presentation.ui.components.ShareText
 import androidx.compose.material3.*
@@ -31,6 +33,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
@@ -44,6 +48,7 @@ import com.rozetka.presentation.ui.screen.feed.components.PostCard
 import org.monogram.presentation.core.ui.CollapsingToolbarScaffold
 import org.monogram.presentation.core.ui.rememberCollapsingToolbarScaffoldState
 import org.monogram.presentation.core.util.ScrollStrategy
+import com.rozetka.domain.model.VoteDirection
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
@@ -92,36 +97,74 @@ fun SubredditDetailScreen(
                     topBar = {
                         TopAppBar(
                             title = {
-                                Text(
-                                    text = "r/$subredditName",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    modifier = Modifier.alpha(1f - states.toolbarState.progress)
-                                )
+                                if (state.isSearchActive) {
+                                    val focusRequester = remember { FocusRequester() }
+                                    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                                    TextField(
+                                        value = state.searchQuery,
+                                        onValueChange = { viewModel.handleIntent(SubredditDetailIntent.SearchPosts(it)) },
+                                        placeholder = { Text("Search in r/$subredditName") },
+                                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                                        singleLine = true,
+                                        colors = TextFieldDefaults.colors(
+                                            focusedContainerColor = Color.Transparent,
+                                            unfocusedContainerColor = Color.Transparent,
+                                            disabledContainerColor = Color.Transparent,
+                                            focusedIndicatorColor = Color.Transparent,
+                                            unfocusedIndicatorColor = Color.Transparent,
+                                        )
+                                    )
+                                } else {
+                                    Text(
+                                        text = "r/$subredditName",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        modifier = Modifier.alpha(1f - states.toolbarState.progress)
+                                    )
+                                }
                             },
                             navigationIcon = {
-                                IconButton(onClick = onBack) {
+                                IconButton(onClick = {
+                                    if (state.isSearchActive) {
+                                        viewModel.handleIntent(SubredditDetailIntent.SetSearchActive(false))
+                                    } else {
+                                        onBack()
+                                    }
+                                }) {
                                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                                 }
                             },
                             actions = {
-                                IconButton(
-                                    onClick = { shareTextData = "https://reddit.com/r/$subredditName" }
-                                ) {
-                                    Icon(Icons.Default.Share, contentDescription = "Share")
-                                }
-                                IconButton(
-                                    onClick = { showAbout = !showAbout },
-                                    modifier = Modifier.background(
-                                        color = if (showAbout) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                                        shape = CircleShape
-                                    )
-                                ) {
-                                    Icon(
-                                        Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = if (showAbout) MaterialTheme.colorScheme.onSecondaryContainer else LocalContentColor.current
-                                    )
+                                if (state.isSearchActive) {
+                                    if (state.searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { viewModel.handleIntent(SubredditDetailIntent.SearchPosts("")) }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Clear")
+                                        }
+                                    }
+                                } else {
+                                    IconButton(
+                                        onClick = { viewModel.handleIntent(SubredditDetailIntent.SetSearchActive(true)) }
+                                    ) {
+                                        Icon(Icons.Default.Search, contentDescription = "Search")
+                                    }
+                                    IconButton(
+                                        onClick = { shareTextData = "https://reddit.com/r/$subredditName" }
+                                    ) {
+                                        Icon(Icons.Default.Share, contentDescription = "Share")
+                                    }
+                                    IconButton(
+                                        onClick = { showAbout = !showAbout },
+                                        modifier = Modifier.background(
+                                            color = if (showAbout) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                                            shape = CircleShape
+                                        )
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Info,
+                                            contentDescription = null,
+                                            tint = if (showAbout) MaterialTheme.colorScheme.onSecondaryContainer else LocalContentColor.current
+                                        )
+                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.topAppBarColors(
@@ -214,17 +257,19 @@ fun SubredditDetailScreen(
                                             }
                                         }
 
-                                        items(state.posts, key = { it.id }) { post ->
+                                        val displayPosts = if (state.isSearchActive) state.searchResults else state.posts
+
+                                        items(displayPosts, key = { it.id }) { post ->
                                             PostCard(
                                                 post = post,
                                                 onPostClick = { onPostClick(post.id) },
                                                 onVote = { directionInt ->
                                                     val direction = if (directionInt > 0) {
-                                                        if (post.voteStatus == com.rozetka.domain.model.VoteDirection.UP) com.rozetka.domain.model.VoteDirection.NONE
-                                                        else com.rozetka.domain.model.VoteDirection.UP
+                                                        if (post.voteStatus == VoteDirection.UP) VoteDirection.NONE
+                                                        else VoteDirection.UP
                                                     } else {
-                                                        if (post.voteStatus == com.rozetka.domain.model.VoteDirection.DOWN) com.rozetka.domain.model.VoteDirection.NONE
-                                                        else com.rozetka.domain.model.VoteDirection.DOWN
+                                                        if (post.voteStatus == VoteDirection.DOWN) VoteDirection.NONE
+                                                        else VoteDirection.DOWN
                                                     }
                                                     viewModel.handleIntent(SubredditDetailIntent.VotePost(post.id, direction))
                                                 },
@@ -254,7 +299,7 @@ fun SubredditDetailScreen(
                                         }
                                     }
 
-                                    if (state.isLoading && state.posts.isEmpty()) {
+                                    if (state.isLoading && (state.posts.isEmpty() && !state.isSearchActive || state.searchResults.isEmpty() && state.isSearchActive)) {
                                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                                     }
                                 }

@@ -1,7 +1,10 @@
 package com.rozetka.presentation.ui.screen.postCreation
 
 import androidx.lifecycle.ViewModel
-import com.rozetka.domain.repository.PostRepository
+import androidx.lifecycle.viewModelScope
+import com.rozetka.domain.usecase.submit.SubmitImagePostWithBytesUseCase
+import com.rozetka.domain.usecase.submit.SubmitLinkPostUseCase
+import com.rozetka.domain.usecase.submit.SubmitTextPostUseCase
 import com.rozetka.domain.work.PostWorkManager
 import com.rozetka.presentation.mvi.PostCreationContract
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -9,12 +12,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 
 class PostCreationViewModel(
-    private val repository: PostRepository,
+    private val submitTextPostUseCase: SubmitTextPostUseCase,
+    private val submitLinkPostUseCase: SubmitLinkPostUseCase,
+    private val submitImagePostWithBytesUseCase: SubmitImagePostWithBytesUseCase,
     private val postWorkManager: PostWorkManager
 ) : ViewModel() {
 
@@ -39,11 +42,13 @@ class PostCreationViewModel(
                 _state.update { it.copy(postType = event.type, error = null) }
             }
             is PostCreationContract.Event.OnMediaSelected -> {
-                _state.update { it.copy(
-                    mediaBytes = event.bytes,
-                    fileName = event.fileName,
-                    error = null
-                ) }
+                _state.update {
+                    it.copy(
+                        mediaBytes = event.bytes,
+                        fileName = event.fileName,
+                        error = null
+                    )
+                }
             }
             PostCreationContract.Event.OnSubmitClicked -> submitPost()
             PostCreationContract.Event.OnDismissError -> {
@@ -63,24 +68,26 @@ class PostCreationViewModel(
             _state.update { it.copy(isLoading = true) }
             val result = when (currentState.postType) {
                 PostCreationContract.PostType.TEXT -> {
-                    repository.submitTextPost(
+                    submitTextPostUseCase(
                         subreddit = currentState.selectedSubreddit,
                         title = currentState.title,
                         text = currentState.content
                     )
                 }
+
                 PostCreationContract.PostType.LINK -> {
-                    repository.submitLinkPost(
+                    submitLinkPostUseCase(
                         subreddit = currentState.selectedSubreddit,
                         title = currentState.title,
                         url = currentState.content
                     )
                 }
+
                 PostCreationContract.PostType.IMAGE -> {
                     val bytes = currentState.mediaBytes
                     val fileName = currentState.fileName
                     if (bytes != null && fileName != null) {
-                        repository.submitImagePostWithBytes(
+                        submitImagePostWithBytesUseCase(
                             subreddit = currentState.selectedSubreddit,
                             title = currentState.title,
                             imageBytes = bytes,
@@ -95,9 +102,9 @@ class PostCreationViewModel(
             result.onSuccess {
                 _state.update { it.copy(isLoading = false, isSuccess = true) }
             }
-            .onFailure { error ->
-                _state.update { it.copy(isLoading = false, error = error.message ?: "Failed to create post") }
-            }
+                .onFailure { error ->
+                    _state.update { it.copy(isLoading = false, error = error.message ?: "Failed to create post") }
+                }
         }
     }
 }
